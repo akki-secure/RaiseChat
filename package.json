@@ -1,0 +1,21 @@
+{
+  "name": "raisechat",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"pnpm --filter server dev\" \"pnpm --filter web dev\"",
+    "build": "pnpm --filter server build && pnpm --filter web build",
+    "test": "pnpm --filter server test && pnpm --filter web test",
+    "lint": "pnpm --filter server lint && pnpm --filter web lint",
+    "secret:scan": "gitleaks detect --source . --config .gitleaks.toml --no-git",
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
