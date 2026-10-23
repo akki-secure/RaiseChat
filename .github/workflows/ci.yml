@@ -64,7 +64,7 @@ jobs:
       - name: Run migrations
         run: |
           PGPASSWORD=testpassword psql -h localhost -U raisechat_app -d raisechat_test \
-            -f db/migrations/001_init.sql
+            -f src/db/migrations/001_init.sql
 
       - name: Test
         run: pnpm test

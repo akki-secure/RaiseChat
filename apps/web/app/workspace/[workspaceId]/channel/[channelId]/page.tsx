@@ -11,7 +11,7 @@ import ThreadPane from '@/components/ThreadPane';
 import { api } from '@/lib/api';
 
 export default function ChannelPage() {
-  const { workspaceId, channelId } = useParams<{ workspaceId: string; channelId: string }>();
+  const { channelId } = useParams<{ workspaceId: string; channelId: string }>();
   const { me, channels, setActiveChannel, setThreadParent, threadParentId, appendMessage, updateMessage, softDeleteMessage } =
     useAppStore();
 
