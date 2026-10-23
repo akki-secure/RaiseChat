@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: raisechat_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: raisechat
+      POSTGRES_USER: raisechat_app
+      POSTGRES_PASSWORD: localdev_password_change_in_prod
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./apps/server/src/db/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U raisechat_app -d raisechat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

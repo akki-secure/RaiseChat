@@ -1,0 +1,23 @@
+[allowlist]
+  description = "Allowlisted files"
+  paths = [
+    ".env.example",
+  ]
+
+[[rules]]
+  id = "jwt-secret"
+  description = "JWT Secret"
+  regex = '''JWT_SECRET\s*=\s*[^\$\{][^\s]{8,}'''
+  severity = "CRITICAL"
+
+[[rules]]
+  id = "db-password"
+  description = "Database password"
+  regex = '''DB_PASSWORD\s*=\s*[^\$\{][^\s]{4,}'''
+  severity = "CRITICAL"
+
+[[rules]]
+  id = "aws-secret"
+  description = "AWS Secret Access Key"
+  regex = '''AWS_SECRET_ACCESS_KEY\s*=\s*[^\$\{][^\s]{8,}'''
+  severity = "CRITICAL"
