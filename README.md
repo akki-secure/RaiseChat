@@ -236,6 +236,9 @@ pnpm secret:scan
 | 機能 | 説明 | サーバー | フロントエンド |
 |---|---|---|---|
 | 🔐 **TOTP 2段階認証** | ログイン時にパスワード＋認証アプリの6桁コードで本人確認。AI悪用フィッシング攻撃への対策として導入。 | `apps/server/src/features/totp/` | `apps/web/features/totp/` |
+| ⚙️ **アカウント設定** | サイドバーの歯車アイコンから開く設定モーダル。ユーザーID・パスワード・TOTP・秘密の質問を変更できる。 | `apps/server/src/routes/auth.ts` | `apps/web/features/settings/` |
+| 🔑 **パスワードリセット** | 秘密の質問で本人確認し、パスワードをリセットするフロー。ログイン画面の「パスワードをお忘れですか？」から遷移。 | `apps/server/src/routes/auth.ts` | `apps/web/app/auth/reset-password/` |
+| 🛡️ **パスワード強度チェック** | 8文字以上・英字・数字・記号の必須バリデーション。NordPass 2024年版上位200弱パスワードをブロックし、赤文字でエラー表示。 | `apps/server/src/utils/blockedPasswords.ts` | `apps/web/lib/passwordValidation.ts` |
 
 ### 🔐 TOTP 2段階認証の詳細
 
@@ -243,7 +246,7 @@ pnpm secret:scan
 > Google Authenticator・Authy・Microsoft Authenticator（iOS / Android 両対応）で利用できます。
 
 **有効化の流れ**
-1. サイドバー下部の「2段階認証を設定する」をクリック
+1. サイドバー下部の歯車アイコン → 設定 → ワンタイムパスワードのトグルをONにする
 2. QRコードを認証アプリで読み取る（手動入力にも対応）
 3. アプリに表示された6桁コードを入力して「有効にする」
 
