@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAppStore, Channel, Workspace, User } from '@/stores/useAppStore';
+import TotpSetupModal from '@/features/totp/TotpSetupModal';
 
 export default function Sidebar() {
   const params = useParams<{ workspaceId: string }>();
@@ -21,6 +22,8 @@ export default function Sidebar() {
     setActiveChannel,
     onlineUserIds,
   } = useAppStore();
+  const [showTotpSetup, setShowTotpSetup] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
 
   useEffect(() => {
     if (!workspaces.length) {
@@ -122,30 +125,49 @@ export default function Sidebar() {
 
       {/* 自分のプロフィール */}
       {me && (
-        <div className="flex items-center gap-3 px-4 py-3 border-t border-gray-800">
-          <div className="relative flex-shrink-0">
-            <div className="w-8 h-8 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-bold text-white">
-              {(me.display_name ?? me.username).charAt(0).toUpperCase()}
+        <div className="border-t border-gray-800 px-4 py-3 space-y-2">
+          <div className="flex items-center gap-3">
+            <div className="relative flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-bold text-white">
+                {(me.display_name ?? me.username).charAt(0).toUpperCase()}
+              </div>
+              <span
+                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${
+                  onlineUserIds.has(me.id) ? statusDot.online : statusDot.offline
+                }`}
+              />
             </div>
-            <span
-              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${
-                onlineUserIds.has(me.id) ? statusDot.online : statusDot.offline
-              }`}
-            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">
+                {me.display_name ?? me.username}
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-gray-500 hover:text-red-400 text-xs transition-colors"
+              title="ログアウト"
+            >
+              ✕
+            </button>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-white truncate">
-              {me.display_name ?? me.username}
-            </p>
-          </div>
+          {/* 2段階認証設定ボタン */}
           <button
-            onClick={handleLogout}
-            className="text-gray-500 hover:text-red-400 text-xs transition-colors"
-            title="ログアウト"
+            onClick={() => setShowTotpSetup(true)}
+            className="w-full text-left text-xs px-2 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
-            ✕
+            <span>{totpEnabled ? '🔐' : '🔓'}</span>
+            <span className={totpEnabled ? 'text-green-400' : 'text-white'}>
+              {totpEnabled ? '2段階認証: 有効' : '2段階認証を設定する'}
+            </span>
           </button>
         </div>
+      )}
+
+      {showTotpSetup && (
+        <TotpSetupModal
+          onClose={() => setShowTotpSetup(false)}
+          onEnabled={() => setTotpEnabled(true)}
+        />
       )}
     </aside>
   );

@@ -1,16 +1,18 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import pool from '../config/db.js';
 import { signToken } from '../utils/jwt.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
+import { PENDING_COOKIE, PENDING_EXPIRES_MS } from '../features/totp/totpRouter.js';
 
 const router = Router();
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  sameSite: (process.env.NODE_ENV === 'production' ? 'strict' : 'lax') as 'strict' | 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
@@ -64,7 +66,7 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
     const { username, password } = loginSchema.parse(req.body);
 
     const result = await pool.query(
-      'SELECT id, username, display_name, avatar_url, status, password_hash FROM users WHERE username = $1',
+      'SELECT id, username, display_name, avatar_url, status, password_hash, totp_enabled FROM users WHERE username = $1',
       [username]
     );
     const user = result.rows[0];
@@ -76,6 +78,25 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
       res.status(401).json({ error: 'ユーザーIDまたはパスワードが間違っています' });
+      return;
+    }
+
+    // 2FA有効なら pending_token を発行してTOTPステップへ
+    if (user.totp_enabled) {
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) throw new Error('JWT_SECRET is not set');
+      const pendingToken = jwt.sign(
+        { userId: user.id, username: user.username, totp_pending: true },
+        jwtSecret,
+        { expiresIn: '15m' }
+      );
+      res.cookie(PENDING_COOKIE, pendingToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: (process.env.NODE_ENV === 'production' ? 'strict' : 'lax') as 'strict' | 'lax',
+        maxAge: PENDING_EXPIRES_MS,
+      });
+      res.json({ requireTotp: true });
       return;
     }
 
