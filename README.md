@@ -225,3 +225,46 @@ pnpm secret:scan
 | SQLインジェクション | pg プリペアドステートメント |
 | 入力バリデーション | Zod スキーマ |
 | シークレット管理 | .env + .gitignore、gitleaks でスキャン |
+
+---
+
+## ✨ 追加機能一覧
+
+> [!TIP]
+> 以下はベース機能に追加で実装した機能です。初期実装とは別ファイルで管理されています。
+
+| 機能 | 説明 | サーバー | フロントエンド |
+|---|---|---|---|
+| 🔐 **TOTP 2段階認証** | ログイン時にパスワード＋認証アプリの6桁コードで本人確認。AI悪用フィッシング攻撃への対策として導入。 | `apps/server/src/features/totp/` | `apps/web/features/totp/` |
+
+### 🔐 TOTP 2段階認証の詳細
+
+> [!NOTE]
+> Google Authenticator・Authy・Microsoft Authenticator（iOS / Android 両対応）で利用できます。
+
+**有効化の流れ**
+1. サイドバー下部の「2段階認証を設定する」をクリック
+2. QRコードを認証アプリで読み取る（手動入力にも対応）
+3. アプリに表示された6桁コードを入力して「有効にする」
+
+**ログイン時の流れ（有効化後）**
+1. ユーザー名・パスワードを入力してログイン
+2. 「6桁コードを入力してください」画面が表示される
+3. スマホの認証アプリに表示されたコードを入力
+
+> [!WARNING]
+> コードは30秒ごとに自動更新されます。期限切れの場合は新しいコードを入力してください。
+
+**関連ファイル**
+
+```
+apps/server/src/
+  db/migrations/002_totp.sql          # users テーブルへの totp_secret/totp_enabled 追加
+  features/totp/
+    totpService.ts                    # シークレット生成・コード検証・QRコード生成
+    totpRouter.ts                     # GET /setup  POST /enable  POST /verify  DELETE /disable
+
+apps/web/features/totp/
+  TotpSetupModal.tsx                  # QRコード表示・有効化モーダル
+  TotpVerifyStep.tsx                  # ログイン時6桁コード入力コンポーネント
+```

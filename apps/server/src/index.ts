@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 
 import authRouter from './routes/auth.js';
+import totpRouter from './features/totp/totpRouter.js';
 import workspacesRouter from './routes/workspaces.js';
 import channelsRouter from './routes/channels.js';
 import messagesRouter from './routes/messages.js';
@@ -24,8 +25,12 @@ const httpServer = http.createServer(app);
 
 // ── セキュリティ ──
 app.use(helmet());
+const allowedOrigins = (process.env.CORS_ORIGIN ?? '').split(',').map((o) => o.trim()).filter(Boolean);
 app.use(cors({
-  origin: process.env.CORS_ORIGIN,
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(new Error(`CORS: ${origin} is not allowed`));
+  },
   credentials: true,
 }));
 // グローバルレート制限: 15分に300回
@@ -51,6 +56,7 @@ app.use('/api/channels/:cid/messages',            messagesRouter);
 app.use('/api/messages/:mid/reactions',           reactionsRouter);
 app.use('/api/workspaces/:wid/dms',               dmsRouter);
 app.use('/api/upload',                            uploadLimiter, uploadRouter);
+app.use('/api/totp',                              totpRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
