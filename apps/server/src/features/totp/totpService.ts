@@ -1,5 +1,4 @@
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { authenticator } = require('otplib') as { authenticator: { generateSecret: () => string; verify: (o: { token: string; secret: string }) => boolean; keyuri: (u: string, s: string, k: string) => string } };
+import { authenticator } from 'otplib';
 import qrcode from 'qrcode';
 
 const APP_NAME = 'RaiseChat';
