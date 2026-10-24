@@ -24,6 +24,7 @@ export default function Sidebar() {
   } = useAppStore();
   const [showTotpSetup, setShowTotpSetup] = useState(false);
   const [totpEnabled, setTotpEnabled] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     if (!workspaces.length) {
@@ -126,29 +127,39 @@ export default function Sidebar() {
       {/* 自分のプロフィール */}
       {me && (
         <div className="border-t border-gray-800 px-4 py-3 space-y-2">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-shrink-0">
-              <div className="w-8 h-8 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-bold text-white">
-                {(me.display_name ?? me.username).charAt(0).toUpperCase()}
-              </div>
-              <span
-                className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${
-                  onlineUserIds.has(me.id) ? statusDot.online : statusDot.offline
-                }`}
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {me.display_name ?? me.username}
-              </p>
-            </div>
+          <div className="relative">
             <button
-              onClick={handleLogout}
-              className="text-gray-500 hover:text-red-400 text-xs transition-colors"
-              title="ログアウト"
+              onClick={() => setShowUserMenu((prev) => !prev)}
+              className="flex items-center gap-3 w-full rounded-md px-1 py-1 hover:bg-gray-800 transition-colors"
             >
-              ✕
+              <div className="relative flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-bold text-white">
+                  {(me.display_name ?? me.username).charAt(0).toUpperCase()}
+                </div>
+                <span
+                  className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-gray-900 ${
+                    onlineUserIds.has(me.id) ? statusDot.online : statusDot.offline
+                  }`}
+                />
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-sm font-medium text-white truncate">
+                  {me.display_name ?? me.username}
+                </p>
+              </div>
+              <span className="text-gray-500 text-xs">{showUserMenu ? '▲' : '▼'}</span>
             </button>
+            {showUserMenu && (
+              <div className="absolute bottom-full left-0 w-full mb-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg overflow-hidden z-10">
+                <button
+                  onClick={() => { setShowUserMenu(false); handleLogout(); }}
+                  className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-400 hover:bg-gray-700 transition-colors"
+                >
+                  <span>↩</span>
+                  <span>ログアウト</span>
+                </button>
+              </div>
+            )}
           </div>
           {/* 2段階認証設定ボタン */}
           <button
