@@ -8,6 +8,8 @@ export interface User {
   display_name: string | null;
   avatar_url: string | null;
   status: UserStatus;
+  totp_enabled?: boolean;
+  has_security_question?: boolean;
 }
 
 export interface Workspace {

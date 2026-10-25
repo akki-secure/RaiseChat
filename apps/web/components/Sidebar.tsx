@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAppStore, Channel, Workspace, User } from '@/stores/useAppStore';
-import TotpSetupModal from '@/features/totp/TotpSetupModal';
+import SettingsModal from '@/features/settings/SettingsModal';
 
 export default function Sidebar() {
   const params = useParams<{ workspaceId: string }>();
@@ -22,8 +22,7 @@ export default function Sidebar() {
     setActiveChannel,
     onlineUserIds,
   } = useAppStore();
-  const [showTotpSetup, setShowTotpSetup] = useState(false);
-  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
@@ -126,11 +125,11 @@ export default function Sidebar() {
 
       {/* 自分のプロフィール */}
       {me && (
-        <div className="border-t border-gray-800 px-4 py-3 space-y-2">
-          <div className="relative">
+        <div className="border-t border-gray-800 px-4 py-3">
+          <div className="relative flex items-center gap-1">
             <button
               onClick={() => setShowUserMenu((prev) => !prev)}
-              className="flex items-center gap-3 w-full rounded-md px-1 py-1 hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-3 flex-1 min-w-0 rounded-md px-1 py-1 hover:bg-gray-800 transition-colors"
             >
               <div className="relative flex-shrink-0">
                 <div className="w-8 h-8 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-bold text-white">
@@ -149,6 +148,17 @@ export default function Sidebar() {
               </div>
               <span className="text-gray-500 text-xs">{showUserMenu ? '▲' : '▼'}</span>
             </button>
+            {/* 歯車アイコン（設定を開く） */}
+            <button
+              onClick={() => { setShowUserMenu(false); setShowSettings(true); }}
+              className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-md hover:bg-gray-800 flex-shrink-0"
+              aria-label="設定"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
             {showUserMenu && (
               <div className="absolute bottom-full left-0 w-full mb-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg overflow-hidden z-10">
                 <button
@@ -161,25 +171,10 @@ export default function Sidebar() {
               </div>
             )}
           </div>
-          {/* 2段階認証設定ボタン */}
-          <button
-            onClick={() => setShowTotpSetup(true)}
-            className="w-full text-left text-xs px-2 py-1.5 rounded-md bg-gray-800 hover:bg-gray-700 transition-colors flex items-center gap-2"
-          >
-            <span>{totpEnabled ? '🔐' : '🔓'}</span>
-            <span className={totpEnabled ? 'text-green-400' : 'text-white'}>
-              {totpEnabled ? '2段階認証: 有効' : '2段階認証を設定する'}
-            </span>
-          </button>
         </div>
       )}
 
-      {showTotpSetup && (
-        <TotpSetupModal
-          onClose={() => setShowTotpSetup(false)}
-          onEnabled={() => setTotpEnabled(true)}
-        />
-      )}
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
     </aside>
   );
 }

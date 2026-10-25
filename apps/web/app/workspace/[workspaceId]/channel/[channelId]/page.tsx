@@ -44,7 +44,9 @@ export default function ChannelPage() {
   // Socket.io イベント購読
   useEffect(() => {
     const socket = getSocket('');
-    socket.emit('channel:join', channelId);
+
+    const joinChannel = () => socket.emit('channel:join', channelId);
+    joinChannel();
 
     const onNew = (msg: Message) => {
       if (msg.channel_id !== channelId) return;
@@ -56,12 +58,15 @@ export default function ChannelPage() {
     };
     const onDelete = ({ id }: { id: string }) => softDeleteMessage(channelId, id);
 
+    // 再接続時にチャンネルルームへ再参加
+    socket.on('connect', joinChannel);
     socket.on('message:new', onNew);
     socket.on('message:update', onUpdate);
     socket.on('message:delete', onDelete);
 
     return () => {
       socket.emit('channel:leave', channelId);
+      socket.off('connect', joinChannel);
       socket.off('message:new', onNew);
       socket.off('message:update', onUpdate);
       socket.off('message:delete', onDelete);
