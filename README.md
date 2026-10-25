@@ -233,12 +233,13 @@ pnpm secret:scan
 > [!TIP]
 > 以下はベース機能に追加で実装した機能です。初期実装とは別ファイルで管理されています。
 
-| 機能 | 説明 | サーバー | フロントエンド |
-|---|---|---|---|
-| 🔐 **TOTP 2段階認証** | ログイン時にパスワード＋認証アプリの6桁コードで本人確認。AI悪用フィッシング攻撃への対策として導入。 | `apps/server/src/features/totp/` | `apps/web/features/totp/` |
-| ⚙️ **アカウント設定** | サイドバーの歯車アイコンから開く設定モーダル。ユーザーID・パスワード・TOTP・秘密の質問を変更できる。 | `apps/server/src/routes/auth.ts` | `apps/web/features/settings/` |
-| 🔑 **パスワードリセット** | 秘密の質問で本人確認し、パスワードをリセットするフロー。ログイン画面の「パスワードをお忘れですか？」から遷移。 | `apps/server/src/routes/auth.ts` | `apps/web/app/auth/reset-password/` |
-| 🛡️ **パスワード強度チェック** | 8文字以上・英字・数字・記号の必須バリデーション。NordPass 2024年版上位200弱パスワードをブロックし、赤文字でエラー表示。 | `apps/server/src/utils/blockedPasswords.ts` | `apps/web/lib/passwordValidation.ts` |
+| 機能 | 説明・実装ファイル |
+|---|---|
+| 🔐 **TOTP 2段階認証** | パスワード＋認証アプリの6桁コードによるログイン。AI悪用フィッシング対策として導入。<br>`apps/server/src/features/totp/` · `apps/web/features/totp/` |
+| ⚙️ **アカウント設定** | サイドバー歯車アイコンから開くモーダル。ユーザーID・パスワード・TOTP・秘密の質問を変更できる。<br>`apps/server/src/routes/auth.ts` · `apps/web/features/settings/` |
+| 🔑 **パスワードリセット** | 秘密の質問で本人確認しパスワードをリセット。ログイン画面の「パスワードをお忘れですか？」から遷移。<br>`apps/server/src/routes/auth.ts` · `apps/web/app/auth/reset-password/` |
+| 🛡️ **パスワード強度チェック** | 8文字以上・英字・数字・記号の必須バリデーション。NordPass 2024年版上位200弱パスワードをブロック。<br>`apps/server/src/utils/blockedPasswords.ts` · `apps/web/lib/passwordValidation.ts` |
+| 🔔 **受信ボックス・通知機能** | 画面右上のベルアイコン（通知ドロップダウン）と受信ボックスアイコン。新着・緊急の2種類・未読バッジ・Web Audio API 通知音。<br>`apps/web/features/notifications/` |
 
 ### 🔐 TOTP 2段階認証の詳細
 

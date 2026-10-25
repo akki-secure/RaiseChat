@@ -7,6 +7,7 @@ import { useAppStore, User } from '@/stores/useAppStore';
 import { getSocket } from '@/lib/socket';
 import { usePresence } from '@/hooks/usePresence';
 import Sidebar from '@/components/Sidebar';
+import TopBar from '@/features/notifications/TopBar';
 
 export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -30,7 +31,10 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-screen overflow-hidden">
       <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <TopBar />
+        <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
+      </div>
     </div>
   );
 }
