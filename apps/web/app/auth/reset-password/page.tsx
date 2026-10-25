@@ -64,10 +64,10 @@ export default function ResetPasswordPage() {
 
         {step === 'username' && (
           <>
-            <p className="text-gray-400 text-sm text-center mb-6">登録時のユーザーIDを入力してください</p>
+            <p className="text-gray-400 text-sm text-center mb-6">登録時に設定したユーザー名を入力してください</p>
             <form onSubmit={handleUsernameSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-400 mb-1">ユーザーID</label>
+                <label className="block text-sm text-gray-400 mb-1">ユーザー名（ユーザーID）</label>
                 <input
                   type="text"
                   value={username}

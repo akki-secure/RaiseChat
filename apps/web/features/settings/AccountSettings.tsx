@@ -51,6 +51,7 @@ export default function AccountSettings() {
   const [totpEnabled, setTotpEnabled] = useState(me?.totp_enabled ?? false);
   const [showTotpSetup, setShowTotpSetup] = useState(false);
   const [showTotpDisable, setShowTotpDisable] = useState(false);
+  const [totpDisabledSuccess, setTotpDisabledSuccess] = useState(false);
   const [disableCode, setDisableCode] = useState('');
   const [totpMsg, setTotpMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [totpLoading, setTotpLoading] = useState(false);
@@ -112,11 +113,11 @@ export default function AccountSettings() {
     setTotpLoading(true);
     try {
       await api.delete('/totp/disable', { code: disableCode });
+      setDisableCode('');
+      setShowTotpDisable(false);
       setTotpEnabled(false);
       setMe({ ...me!, totp_enabled: false });
-      setShowTotpDisable(false);
-      setDisableCode('');
-      setTotpMsg({ type: 'ok', text: '2段階認証を無効にしました' });
+      setTotpDisabledSuccess(true);
     } catch (err) {
       setTotpMsg({ type: 'err', text: err instanceof Error ? err.message : '無効化に失敗しました' });
     } finally {
@@ -177,16 +178,16 @@ export default function AccountSettings() {
         <form onSubmit={handlePasswordSubmit} className="space-y-3">
           <div>
             <label className="block text-xs text-gray-400 mb-1">現在のパスワード</label>
-            <div className="relative">
+            <div className="flex items-center bg-gray-800 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
               <input
                 type={showCurrentPw ? 'text' : 'password'}
                 value={currentPw}
                 onChange={(e) => setCurrentPw(e.target.value)}
                 required
-                className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 pr-9 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="flex-1 min-w-0 bg-transparent text-white px-4 py-2 outline-none text-sm"
               />
               <button type="button" onClick={() => setShowCurrentPw((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                className="flex-shrink-0 px-2.5 text-gray-400 hover:text-white"
                 aria-label={showCurrentPw ? 'パスワードを非表示' : 'パスワードを表示'}>
                 <EyeIcon open={showCurrentPw} />
               </button>
@@ -194,16 +195,16 @@ export default function AccountSettings() {
           </div>
           <div>
             <label className="block text-xs text-gray-400 mb-1">新しいパスワード</label>
-            <div className="relative">
+            <div className="flex items-center bg-gray-800 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500">
               <input
                 type={showNewPw ? 'text' : 'password'}
                 value={newPw}
                 onChange={(e) => handleNewPwChange(e.target.value)}
                 required
-                className="w-full bg-gray-800 text-white rounded-lg px-4 py-2 pr-9 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+                className="flex-1 min-w-0 bg-transparent text-white px-4 py-2 outline-none text-sm"
               />
               <button type="button" onClick={() => setShowNewPw((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                className="flex-shrink-0 px-2.5 text-gray-400 hover:text-white"
                 aria-label={showNewPw ? 'パスワードを非表示' : 'パスワードを表示'}>
                 <EyeIcon open={showNewPw} />
               </button>
@@ -240,7 +241,7 @@ export default function AccountSettings() {
 
       {/* ── ワンタイムパスワード（TOTP）── */}
       <section>
-        <div className="flex items-center justify-between">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'center' }}>
           <div>
             <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">ワンタイムパスワード（2段階認証）</h3>
             <p className="text-xs text-yellow-400 mt-0.5">※ セキュリティ向上のため推奨</p>
@@ -249,22 +250,57 @@ export default function AccountSettings() {
             type="button"
             onClick={() => {
               setTotpMsg(null);
+              setTotpDisabledSuccess(false);
               if (totpEnabled) {
                 setShowTotpDisable(true);
               } else {
                 setShowTotpSetup(true);
               }
             }}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900 ${totpEnabled ? 'bg-indigo-600' : 'bg-gray-600'}`}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '4px 10px',
+              borderRadius: 999,
+              backgroundColor: '#1f2937',
+              border: '2px solid #374151',
+              cursor: 'pointer',
+              minWidth: 80,
+              justifyContent: 'space-between',
+              flexShrink: 0,
+            }}
             aria-label={totpEnabled ? '2段階認証を無効にする' : '2段階認証を有効にする'}
           >
-            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${totpEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            {totpEnabled ? (
+              <>
+                <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>ON</span>
+                <span style={{ width: 20, height: 20, borderRadius: '50%', backgroundColor: '#22c55e', border: '2px solid #15803d', display: 'block', flexShrink: 0 }} />
+              </>
+            ) : (
+              <>
+                <span style={{ width: 20, height: 20, borderRadius: '50%', backgroundColor: 'rgb(156 163 175)', border: '2px solid #6b7280', display: 'block', flexShrink: 0 }} />
+                <span style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>OFF</span>
+              </>
+            )}
           </button>
         </div>
         <p className="text-xs text-gray-500 mt-1">
-          {totpEnabled ? '有効：ログイン時に認証アプリのコードが必要です' : '無効：パスワードのみでログインできます'}
+          {totpEnabled
+            ? '有効：ログイン時に認証アプリのコードが必要です。無効にする際もコードの入力が必要です。'
+            : '無効：パスワードのみでログインできます'}
         </p>
-        {totpMsg && (
+
+        {totpDisabledSuccess && (
+          <div className="mt-3 bg-green-900/40 border border-green-700 rounded-lg px-4 py-3 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-sm text-green-400">2段階認証を無効にしました</p>
+          </div>
+        )}
+
+        {totpMsg && !totpDisabledSuccess && (
           <p className={`text-xs mt-2 ${totpMsg.type === 'ok' ? 'text-green-400' : 'text-red-400'}`}>
             {totpMsg.text}
           </p>
@@ -272,7 +308,7 @@ export default function AccountSettings() {
 
         {showTotpDisable && (
           <form onSubmit={handleDisableTotp} className="mt-3 space-y-2 bg-gray-800 rounded-lg p-3">
-            <p className="text-xs text-gray-300">認証アプリのコードを入力して無効化してください</p>
+            <p className="text-xs text-gray-300">認証アプリに表示されている6桁のコードを入力して無効化してください</p>
             <input
               type="text"
               inputMode="numeric"
@@ -283,8 +319,11 @@ export default function AccountSettings() {
               autoFocus
               className="w-full bg-gray-700 text-white text-center tracking-widest rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
             />
+            {totpMsg?.type === 'err' && (
+              <p className="text-red-400 text-xs">{totpMsg.text}</p>
+            )}
             <div className="flex gap-2">
-              <button type="button" onClick={() => setShowTotpDisable(false)}
+              <button type="button" onClick={() => { setShowTotpDisable(false); setTotpMsg(null); }}
                 className="flex-1 bg-gray-700 hover:bg-gray-600 text-white text-sm rounded-lg py-2 transition-colors">
                 キャンセル
               </button>
@@ -301,7 +340,7 @@ export default function AccountSettings() {
 
       {/* ── 秘密の質問 ── */}
       <section>
-        <div className="flex items-center justify-between mb-2">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'center' }} className="mb-2">
           <div>
             <h3 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">秘密の質問</h3>
             <p className="text-xs text-gray-500 mt-0.5">パスワードを忘れたときの本人確認に使用します</p>
@@ -309,7 +348,7 @@ export default function AccountSettings() {
           <button
             type="button"
             onClick={() => { setShowSqForm((v) => !v); setSqMsg(null); }}
-            className="text-xs text-indigo-400 hover:underline"
+            className="text-xs text-indigo-400 hover:underline whitespace-nowrap"
           >
             {me?.has_security_question ? '変更する' : '設定する'}
           </button>

@@ -53,88 +53,88 @@ export default function TotpSetupModal({ onClose, onEnabled }: Props) {
   }, []);
 
   const modal = (
-    <div className="fixed inset-0 z-[9999] flex h-screen w-screen items-center justify-center">
+    <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', zIndex: 10000 }}>
       {/* 背景オーバーレイ */}
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} />
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.7)' }} onClick={onClose} />
 
-      {/* モーダルカード — 画面中央に固定 */}
-      <div className="relative bg-gray-900 rounded-xl shadow-2xl border border-gray-700 w-[420px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-4rem)] overflow-y-auto">
-        <div className="p-6">
-          <h2 className="text-xl font-bold text-white mb-1">2段階認証の設定</h2>
-          <p className="text-sm text-gray-400 mb-5">
-            Google Authenticator などのアプリで QR コードを読み取り、<br />
-            表示された6桁コードを入力してください。
-          </p>
+      {/* 中央揃えラッパー */}
+      <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {/* モーダルカード */}
+        <div className="bg-gray-900 rounded-xl shadow-2xl border border-gray-700 w-[420px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-4rem)] overflow-y-auto">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-1">2段階認証の設定</h2>
+            <p className="text-sm text-gray-400 mb-5">
+              Google Authenticator などのアプリで QR コードを読み取り、<br />
+              表示された6桁コードを入力してください。
+            </p>
 
-          {done ? (
-            <div className="text-center py-4">
-              <div className="text-5xl mb-3">✅</div>
-              <p className="text-green-400 font-medium mb-5">2段階認証を有効にしました</p>
-              <button
-                onClick={onClose}
-                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg py-2.5 transition-colors"
-              >
-                閉じる
-              </button>
-            </div>
-          ) : loading && !qrDataURL ? (
-            <div className="text-center text-gray-400 py-8">読み込み中…</div>
-          ) : error && !qrDataURL ? (
-            /* APIエラーで QR コードが取得できなかった場合 */
-            <div className="text-center py-4">
-              <div className="text-4xl mb-3">🔐</div>
-              <p className="text-yellow-400 font-medium mb-5">{error}</p>
-              <button
-                onClick={onClose}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg py-2.5 transition-colors"
-              >
-                閉じる
-              </button>
-            </div>
-          ) : (
-            <>
-              {/* QRコード（小さめに表示） */}
-              {qrDataURL && (
-                <div className="flex justify-center mb-4">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={qrDataURL} alt="TOTP QR Code" className="w-36 h-36 rounded-lg bg-white p-1" />
-                </div>
-              )}
-
-              {/* 6桁コード入力 */}
-              <div className="mb-4">
-                <label className="block text-sm text-gray-400 mb-1">認証アプリに表示された6桁コード</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  autoFocus
-                  className="w-full bg-gray-800 text-white text-center text-xl tracking-widest rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-
-              {error && qrDataURL && <p className="text-red-400 text-sm mb-3">{error}</p>}
-
-              <div className="flex gap-2">
+            {done ? (
+              <div className="text-center py-4">
+                <div className="text-5xl mb-3">✅</div>
+                <p className="text-green-400 font-medium mb-5">2段階認証を有効にしました</p>
                 <button
                   onClick={onClose}
-                  className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg py-2.5 transition-colors"
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium rounded-lg py-2.5 transition-colors"
                 >
-                  キャンセル
-                </button>
-                <button
-                  onClick={handleEnable}
-                  disabled={loading || code.length !== 6}
-                  className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 transition-colors"
-                >
-                  {loading ? '確認中…' : '有効にする'}
+                  閉じる
                 </button>
               </div>
-            </>
-          )}
+            ) : loading && !qrDataURL ? (
+              <div className="text-center text-gray-400 py-8">読み込み中…</div>
+            ) : error && !qrDataURL ? (
+              <div className="text-center py-4">
+                <div className="text-4xl mb-3">🔐</div>
+                <p className="text-yellow-400 font-medium mb-5">{error}</p>
+                <button
+                  onClick={onClose}
+                  className="w-full bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg py-2.5 transition-colors"
+                >
+                  閉じる
+                </button>
+              </div>
+            ) : (
+              <>
+                {qrDataURL && (
+                  <div className="flex justify-center mb-4">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={qrDataURL} alt="TOTP QR Code" className="w-36 h-36 rounded-lg bg-white p-1" />
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <label className="block text-sm text-gray-400 mb-1">認証アプリに表示された6桁コード</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    autoFocus
+                    className="w-full bg-gray-800 text-white text-center text-xl tracking-widest rounded-lg px-4 py-2.5 outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+
+                {error && qrDataURL && <p className="text-red-400 text-sm mb-3">{error}</p>}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={onClose}
+                    className="flex-1 bg-gray-700 hover:bg-gray-600 text-white font-medium rounded-lg py-2.5 transition-colors"
+                  >
+                    キャンセル
+                  </button>
+                  <button
+                    onClick={handleEnable}
+                    disabled={loading || code.length !== 6}
+                    className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium rounded-lg py-2.5 transition-colors"
+                  >
+                    {loading ? '確認中…' : '有効にする'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
