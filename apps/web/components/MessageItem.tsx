@@ -20,7 +20,7 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
 
   const isDeleted = !!msg.deleted_at;
   const isOwn = msg.user_id === me?.id;
-  const displayName = msg.user?.display_name ?? msg.user?.username ?? '…';
+  const displayName = msg.user?.display_name ?? msg.user?.username ?? msg.display_name ?? msg.username ?? '…';
   const initial = displayName.charAt(0).toUpperCase();
   const time = new Date(msg.created_at).toLocaleTimeString('ja-JP', {
     hour: '2-digit',

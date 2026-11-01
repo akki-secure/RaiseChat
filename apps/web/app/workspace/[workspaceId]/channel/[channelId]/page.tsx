@@ -5,15 +5,17 @@ import { useParams } from 'next/navigation';
 import { getSocket } from '@/lib/socket';
 import { useAppStore, Message } from '@/stores/useAppStore';
 import { useMessages } from '@/hooks/useMessages';
+import { useNotificationStore } from '@/features/notifications/useNotificationStore';
 import MessageItem from '@/components/MessageItem';
 import MessageInput from '@/components/MessageInput';
 import ThreadPane from '@/components/ThreadPane';
 import { api } from '@/lib/api';
 
 export default function ChannelPage() {
-  const { channelId } = useParams<{ workspaceId: string; channelId: string }>();
+  const { workspaceId, channelId } = useParams<{ workspaceId: string; channelId: string }>();
   const { me, channels, setActiveChannel, setThreadParent, threadParentId, appendMessage, updateMessage, softDeleteMessage } =
     useAppStore();
+  const { addNotification } = useNotificationStore();
 
   const channel = channels.find((c) => c.id === channelId);
   const { msgs, loadMore, hasMore } = useMessages(channelId);
@@ -52,6 +54,16 @@ export default function ChannelPage() {
       if (msg.channel_id !== channelId) return;
       appendMessage(channelId, msg);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+      if (msg.user_id !== me?.id) {
+        const isUrgent = !!(me?.username && msg.content.includes(`@${me.username}`));
+        const ch = channels.find((c) => c.id === channelId);
+        addNotification({
+          type: isUrgent ? 'urgent' : 'new',
+          title: isUrgent ? 'メンション' : `#${ch?.name ?? '…'}`,
+          body: msg.content,
+          href: `/workspace/${workspaceId}/channel/${channelId}`,
+        });
+      }
     };
     const onUpdate = (msg: Message) => {
       if (msg.channel_id === channelId) updateMessage(channelId, msg);
@@ -71,7 +83,7 @@ export default function ChannelPage() {
       socket.off('message:update', onUpdate);
       socket.off('message:delete', onDelete);
     };
-  }, [channelId, appendMessage, updateMessage, softDeleteMessage]);
+  }, [channelId, appendMessage, updateMessage, softDeleteMessage, me, channels, workspaceId, addNotification]);
 
   async function sendMessage(content: string) {
     if (!me) return;
