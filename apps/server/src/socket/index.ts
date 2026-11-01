@@ -41,6 +41,8 @@ export function initSocket(httpServer: HttpServer): Server {
     const userId = socket.data.userId as string;
     logger.info('Socket connected', { userId, socketId: socket.id });
 
+    socket.join(`user:${userId}`);
+
     registerMessageHandlers(io, socket, userId);
     registerPresenceHandlers(io, socket, userId);
   });

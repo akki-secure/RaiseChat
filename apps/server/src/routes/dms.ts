@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import pool from '../config/db.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
+import { getIo } from '../socket/ioInstance.js';
 
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
@@ -67,7 +68,23 @@ router.post('/:uid', async (req: AuthRequest, res: Response, next: NextFunction)
       'INSERT INTO direct_messages (workspace_id, sender_id, receiver_id, content) VALUES ($1, $2, $3, $4) RETURNING *',
       [wid, userId, uid, content]
     );
-    res.status(201).json({ message: result.rows[0] });
+
+    const senderResult = await pool.query(
+      'SELECT username, display_name FROM users WHERE id = $1',
+      [userId]
+    );
+    const dm = result.rows[0];
+    try {
+      getIo().to(`user:${uid}`).emit('dm:new', {
+        ...dm,
+        username: senderResult.rows[0].username,
+        display_name: senderResult.rows[0].display_name,
+      });
+    } catch {
+      // Socket.io 未初期化時は通知をスキップ
+    }
+
+    res.status(201).json({ message: dm });
   } catch (err) {
     next(err);
   }
