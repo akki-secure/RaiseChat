@@ -51,6 +51,9 @@ export interface Message {
   deleted_at: string | null;
   created_at: string;
   user?: User;
+  username?: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
   attachments?: Attachment[];
   reactions?: Reaction[];
   reply_count?: number;
