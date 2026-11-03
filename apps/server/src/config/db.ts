@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import logger from '../utils/logger.js';
 
 const pool = new Pool({
   host:     process.env.DB_HOST,
@@ -12,7 +13,7 @@ const pool = new Pool({
 });
 
 pool.on('error', (err) => {
-  console.error('PostgreSQL pool error', err);
+  logger.error('PostgreSQL pool error', err);
   process.exit(1);
 });
 
