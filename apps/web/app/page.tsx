@@ -3,32 +3,31 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { useAppStore, User } from '@/stores/useAppStore';
+import { useAppStore, User, Workspace } from '@/stores/useAppStore';
 
 export default function RootPage() {
   const router = useRouter();
-  const { me, setMe, workspaces } = useAppStore();
+  const { me, setMe, setWorkspaces } = useAppStore();
 
   useEffect(() => {
-    if (me) {
-      if (workspaces.length > 0) {
-        router.replace(`/workspace/${workspaces[0].id}`);
-      } else {
-        router.replace('/workspace/new');
-      }
-      return;
-    }
+    if (me) return;
 
     api
       .get<{ user: User }>('/auth/me')
-      .then(({ user }) => {
+      .then(async ({ user }) => {
         setMe(user);
-        router.replace('/');
+        const { workspaces } = await api.get<{ workspaces: Workspace[] }>('/workspaces');
+        setWorkspaces(workspaces);
+        if (workspaces.length > 0) {
+          router.replace(`/workspace/${workspaces[0].id}`);
+        } else {
+          router.replace('/workspace/new');
+        }
       })
       .catch(() => {
         router.replace('/auth/login');
       });
-  }, [me, workspaces, router, setMe]);
+  }, [me, router, setMe, setWorkspaces]);
 
   return null;
 }
