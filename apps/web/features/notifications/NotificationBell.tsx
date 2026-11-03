@@ -37,7 +37,7 @@ export default function NotificationBell() {
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
       {/* ベルボタン */}
       <button
         onClick={() => setOpen((v) => !v)}

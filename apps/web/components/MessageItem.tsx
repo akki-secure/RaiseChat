@@ -79,7 +79,28 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
             [&_pre]:bg-gray-900 [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0
             [&_blockquote]:border-l-2 [&_blockquote]:border-gray-600 [&_blockquote]:pl-3 [&_blockquote]:text-gray-400
             [&_a]:text-indigo-400 [&_a]:underline [&_strong]:text-white">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                a: ({ href, children }) => {
+                  if (href?.startsWith('#mention-')) {
+                    const name = decodeURIComponent(href.slice(9));
+                    return (
+                      <span className="text-indigo-400 font-semibold bg-indigo-500/20 rounded px-1 py-0.5">
+                        @{name}
+                      </span>
+                    );
+                  }
+                  return (
+                    <a href={href} className="text-indigo-400 underline" target="_blank" rel="noopener noreferrer">
+                      {children}
+                    </a>
+                  );
+                },
+              }}
+            >
+              {msg.content.replace(/(?<!\[)@([\w぀-鿿一-鿿]+)/g, '[@$1](#mention-$1)')}
+            </ReactMarkdown>
           </div>
         )}
 

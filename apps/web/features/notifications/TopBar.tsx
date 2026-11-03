@@ -18,7 +18,7 @@ export default function TopBar() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-end',
-          gap: '4px',
+          gap: '12px',
           padding: '6px 12px',
           backgroundColor: '#111827',
           borderBottom: '1px solid #1f2937',
