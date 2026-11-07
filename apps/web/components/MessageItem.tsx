@@ -115,6 +115,14 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
                   alt="attachment"
                   className="max-h-48 rounded border border-gray-700"
                 />
+              ) : a.file_type.startsWith('video/') ? (
+                <video
+                  key={a.id}
+                  src={a.url}
+                  controls
+                  preload="metadata"
+                  className="max-h-64 max-w-full rounded border border-gray-700"
+                />
               ) : (
                 <a
                   key={a.id}
