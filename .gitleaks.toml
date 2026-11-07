@@ -1,7 +1,17 @@
+[extend]
+  useDefault = true   # gitleaks 標準ルール（AWSキー・GitHubトークン・秘密鍵など）を有効化
+
 [allowlist]
-  description = "Allowlisted files"
+  description = "追跡されない物・.env.example・テスト用ダミー値"
   paths = [
-    ".env.example",
+    '''(^|/)\.env$''',            # 本物のシークレットを置く場所（gitignore済み）
+    '''(^|/)\.env\.example$''',   # 値は空のひな形
+    '''(^|/)dist/''',            # ビルド生成物（server）
+    '''(^|/)\.next/''',          # ビルド生成物（Next.js。標準ルールの generic-api-key が誤検出するため）
+    '''(^|/)node_modules/''',    # 依存パッケージ
+  ]
+  regexes = [
+    '''=\s*['"]test-[\w-]+['"]''',  # テスト用ダミー値は test- で始まる値のみ許可
   ]
 
 [[rules]]
