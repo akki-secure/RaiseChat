@@ -10,6 +10,7 @@ import MessageItem from '@/components/MessageItem';
 import MessageInput from '@/components/MessageInput';
 import ThreadPane from '@/components/ThreadPane';
 import { api } from '@/lib/api';
+import { UploadedAttachment } from '@/features/fileUpload/types';
 
 export default function ChannelPage() {
   const { workspaceId, channelId } = useParams<{ workspaceId: string; channelId: string }>();
@@ -85,9 +86,9 @@ export default function ChannelPage() {
     };
   }, [channelId, appendMessage, updateMessage, softDeleteMessage, me, channels, workspaceId, addNotification]);
 
-  async function sendMessage(content: string) {
+  async function sendMessage(content: string, attachments?: UploadedAttachment[]) {
     if (!me) return;
-    await api.post(`/channels/${channelId}/messages`, { content });
+    await api.post(`/channels/${channelId}/messages`, { content, attachments });
   }
 
   return (
@@ -130,6 +131,7 @@ export default function ChannelPage() {
         <MessageInput
           placeholder={`#${channel?.name ?? '…'} へメッセージ`}
           onSend={sendMessage}
+          allowAttachments
         />
       </div>
 

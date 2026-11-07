@@ -36,7 +36,7 @@ export function registerMessageHandlers(io: Server, socket: Socket, userId: stri
         [userId]
       );
 
-      const message = { ...result.rows[0], ...userResult.rows[0] };
+      const message = { ...result.rows[0], ...userResult.rows[0], attachments: [] };
       io.to(`channel:${channelId}`).emit('message:new', message);
     } catch (err) {
       logger.error('send_message error', { err, userId });

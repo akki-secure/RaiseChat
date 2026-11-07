@@ -5,6 +5,22 @@ import { requireAuth, AuthRequest } from '../middleware/auth.js';
 import { getIo } from '../socket/ioInstance.js';
 
 const router = Router({ mergeParams: true });
+
+const MAX_ATTACHMENTS = 5;
+const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm'] as const;
+
+// 添付URLは自社S3バケット（/api/upload が返したもの）に限定する
+function isOwnUploadUrl(url: string): boolean {
+  const prefix = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/uploads/`;
+  return url.startsWith(prefix);
+}
+
+const attachmentSchema = z.object({
+  url: z.string().url().refine(isOwnUploadUrl, { message: '不正な添付URLです' }),
+  file_type: z.enum(ALLOWED_FILE_TYPES),
+  size: z.number().int().positive(),
+});
+
 router.use(requireAuth);
 
 // チャンネルメンバー確認ヘルパー
@@ -78,9 +94,13 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
   try {
     const { cid } = req.params;
     const userId = req.user!.userId;
-    const { content, parent_id } = z.object({
-      content: z.string().min(1).max(4000),
+    const { content, parent_id, attachments = [] } = z.object({
+      content: z.string().max(4000),
       parent_id: z.string().uuid().optional(),
+      attachments: z.array(attachmentSchema).max(MAX_ATTACHMENTS).optional(),
+    }).refine((d) => d.content.length > 0 || (d.attachments?.length ?? 0) > 0, {
+      message: 'メッセージまたは添付ファイルが必要です',
+      path: ['content'],
     }).parse(req.body);
 
     if (!(await assertChannelMember(cid, userId))) {
@@ -88,19 +108,38 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
       return;
     }
 
-    const result = await pool.query(
-      `INSERT INTO messages (channel_id, user_id, content, parent_id)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, channel_id, user_id, content, parent_id, edited_at, created_at`,
-      [cid, userId, content, parent_id ?? null]
-    );
+    // メッセージ本体と添付を同一トランザクションで保存
+    const client = await pool.connect();
+    let row: Record<string, unknown>;
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `INSERT INTO messages (channel_id, user_id, content, parent_id)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, channel_id, user_id, content, parent_id, edited_at, created_at`,
+        [cid, userId, content, parent_id ?? null]
+      );
+      row = result.rows[0];
+      for (const a of attachments) {
+        await client.query(
+          'INSERT INTO attachments (message_id, url, file_type, size) VALUES ($1, $2, $3, $4)',
+          [row.id, a.url, a.file_type, a.size]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
 
     const userResult = await pool.query(
       'SELECT username, display_name, avatar_url FROM users WHERE id = $1',
       [userId]
     );
 
-    const message = { ...result.rows[0], ...userResult.rows[0] };
+    const message = { ...row, ...userResult.rows[0], attachments };
 
     try {
       getIo().to(`channel:${cid}`).emit('message:new', message);
