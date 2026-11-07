@@ -84,4 +84,21 @@ describe('api', () => {
     );
     await expect(api.post('/register', {})).rejects.toThrow('email: 既に使われています');
   });
+
+  it('upload は FormData を送信し Content-Type を手動設定しない', async () => {
+    mockFetch.mockResolvedValue(makeResponse({ url: 'https://x/uploads/a.png', file_type: 'image/png', size: 3 }, true, 201));
+    const file = new File(['abc'], 'a.png', { type: 'image/png' });
+    const result = await api.upload(file);
+    expect(result.url).toBe('https://x/uploads/a.png');
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toContain('/upload');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeInstanceOf(FormData);
+    expect(init.headers).toBeUndefined();
+  });
+
+  it('upload 失敗時はサーバーのエラーメッセージで throw する', async () => {
+    mockFetch.mockResolvedValue(makeResponse({ error: '画像は10MB以下にしてください' }, false, 400));
+    await expect(api.upload(new File(['a'], 'a.png', { type: 'image/png' }))).rejects.toThrow('画像は10MB以下にしてください');
+  });
 });

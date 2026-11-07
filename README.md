@@ -240,6 +240,7 @@ pnpm secret:scan
 | 🔑 **パスワードリセット** | 秘密の質問で本人確認しパスワードをリセット。ログイン画面の「パスワードをお忘れですか？」から遷移。<br>`apps/server/src/routes/auth.ts` · `apps/web/app/auth/reset-password/` |
 | 🛡️ **パスワード強度チェック** | 8文字以上・英字・数字・記号の必須バリデーション。NordPass 2024年版上位200弱パスワードをブロック。<br>`apps/server/src/utils/blockedPasswords.ts` · `apps/web/lib/passwordValidation.ts` |
 | 🔔 **受信ボックス・通知機能** | 画面右上のベルアイコン（通知ドロップダウン）と受信ボックスアイコン。新着・緊急の2種類・未読バッジ・Web Audio API 通知音。<br>`apps/web/features/notifications/` |
+| 📎 **ファイル・画像添付** | チャンネルで画像（10MBまで）・動画（100MBまで）を最大5件添付して投稿。アップロード後にプレビュー表示。<br>`apps/web/features/fileUpload/` · `apps/server/src/routes/messages.ts` |
 
 ### 🔐 TOTP 2段階認証の詳細
 
