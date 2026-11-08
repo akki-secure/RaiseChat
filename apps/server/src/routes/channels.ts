@@ -21,6 +21,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
        FROM channels c
        LEFT JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = $2
        WHERE c.workspace_id = $1
+         AND c.deleted_at IS NULL
          AND (c.type = 'public' OR cm.user_id IS NOT NULL)
        ORDER BY c.created_at ASC`,
       [wid, userId]
@@ -90,13 +91,27 @@ router.delete('/:cid', async (req: AuthRequest, res: Response, next: NextFunctio
       return;
     }
 
-    const ch = await pool.query('SELECT name FROM channels WHERE id = $1', [cid]);
-    if (ch.rows[0]?.name === 'general') {
+    const ch = await pool.query(
+      'SELECT name FROM channels WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL',
+      [cid, wid]
+    );
+    if (!ch.rows[0]) {
+      res.status(404).json({ error: 'チャンネルが見つかりません' });
+      return;
+    }
+    if (ch.rows[0].name === 'general') {
       res.status(400).json({ error: '#general チャンネルは削除できません' });
       return;
     }
 
-    await pool.query('DELETE FROM channels WHERE id = $1 AND workspace_id = $2', [cid, wid]);
+    // 論理削除。UNIQUE(workspace_id, name) と衝突しないよう、名前の末尾に印を足す（100文字以内）
+    await pool.query(
+      `UPDATE channels
+       SET deleted_at = NOW(),
+           name = left(name, 80) || '~deleted~' || left(id::text, 8)
+       WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL`,
+      [cid, wid]
+    );
     res.json({ message: 'チャンネルを削除しました' });
   } catch (err) {
     next(err);
@@ -110,7 +125,7 @@ router.post('/:cid/join', async (req: AuthRequest, res: Response, next: NextFunc
     const userId = req.user!.userId;
 
     const ch = await pool.query(
-      'SELECT type FROM channels WHERE id = $1 AND workspace_id = $2',
+      'SELECT type FROM channels WHERE id = $1 AND workspace_id = $2 AND deleted_at IS NULL',
       [cid, wid]
     );
     if (!ch.rows[0]) {
@@ -140,8 +155,10 @@ router.post('/:cid/invite', async (req: AuthRequest, res: Response, next: NextFu
     const requesterId = req.user!.userId;
 
     const requesterMember = await pool.query(
-      'SELECT user_id FROM channel_members WHERE channel_id = $1 AND user_id = $2',
-      [cid, requesterId]
+      `SELECT cm.user_id FROM channel_members cm
+       JOIN channels c ON c.id = cm.channel_id
+       WHERE cm.channel_id = $1 AND cm.user_id = $2 AND c.workspace_id = $3 AND c.deleted_at IS NULL`,
+      [cid, requesterId, wid]
     );
     if (!requesterMember.rows[0]) {
       res.status(403).json({ error: 'このチャンネルのメンバーではありません' });
