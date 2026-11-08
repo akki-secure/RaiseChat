@@ -15,13 +15,16 @@ const ALLOWED_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.
 const MAX_SIZE_IMAGE = 10 * 1024 * 1024;  // 10MB
 const MAX_SIZE_VIDEO = 100 * 1024 * 1024; // 100MB
 
+// 利用者に見せてよいアップロードのエラー（400で返す）
+export class UploadError extends Error {}
+
 export const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_SIZE_VIDEO },
   fileFilter(_req: Request, file, cb) {
     const ext = '.' + file.originalname.split('.').pop()?.toLowerCase();
     if (!ALLOWED_MIME_TYPES.has(file.mimetype) || !ALLOWED_EXTENSIONS.has(ext)) {
-      cb(new Error('許可されていないファイル形式です'));
+      cb(new UploadError('許可されていないファイル形式です'));
       return;
     }
     cb(null, true);
