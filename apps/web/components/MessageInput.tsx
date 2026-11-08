@@ -2,14 +2,14 @@
 
 import { useState, useRef } from 'react';
 import { api } from '@/lib/api';
-import FileAttachButton from '@/features/fileUpload/FileAttachButton';
+import AttachMenuButton from '@/features/fileUpload/AttachMenuButton';
 import AttachmentPreview from '@/features/fileUpload/AttachmentPreview';
 import { UploadedAttachment } from '@/features/fileUpload/types';
 
 interface Props {
   placeholder?: string;
   onSend: (content: string, attachments?: UploadedAttachment[]) => void;
-  /** true のとき 📎 ファイル添付ボタンを表示する（チャンネルのみ） */
+  /** true のとき ＋ 添付メニューを表示する（チャンネルのみ） */
   allowAttachments?: boolean;
 }
 
@@ -68,7 +68,7 @@ export default function MessageInput({ placeholder = 'メッセージを入力�
       />
       <div className="flex items-end gap-2">
         {allowAttachments && (
-          <FileAttachButton
+          <AttachMenuButton
             onSelect={handleSelect}
             disabled={uploading || attachments.length >= MAX_ATTACHMENTS}
           />
