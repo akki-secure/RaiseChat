@@ -26,7 +26,9 @@ router.use(requireAuth);
 // チャンネルメンバー確認ヘルパー
 async function assertChannelMember(channelId: string, userId: string): Promise<boolean> {
   const result = await pool.query(
-    'SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2',
+    `SELECT 1 FROM channel_members cm
+     JOIN channels c ON c.id = cm.channel_id
+     WHERE cm.channel_id = $1 AND cm.user_id = $2 AND c.deleted_at IS NULL`,
     [channelId, userId]
   );
   return result.rows.length > 0;
@@ -250,7 +252,7 @@ router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunctio
        FROM messages m
        JOIN channels c ON c.id = m.channel_id
        JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = $2
-       WHERE m.id = $1 AND m.deleted_at IS NULL`,
+       WHERE m.id = $1 AND m.deleted_at IS NULL AND c.deleted_at IS NULL`,
       [mid, userId]
     );
     if (!msg.rows[0]) {

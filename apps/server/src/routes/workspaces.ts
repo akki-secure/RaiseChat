@@ -192,6 +192,7 @@ router.get('/:id/search', async (req: AuthRequest, res: Response, next: NextFunc
        JOIN channels c ON c.id = m.channel_id
        JOIN users u ON u.id = m.user_id
        WHERE c.workspace_id = $1
+         AND c.deleted_at IS NULL
          AND m.deleted_at IS NULL
          AND m.parent_id IS NULL
          AND to_tsvector('english', m.content) @@ plainto_tsquery('english', $2)

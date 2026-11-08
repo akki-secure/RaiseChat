@@ -19,7 +19,9 @@ export function registerMessageHandlers(io: Server, socket: Socket, userId: stri
       const { channelId, content, parentId } = data;
 
       const memberCheck = await pool.query(
-        'SELECT 1 FROM channel_members WHERE channel_id = $1 AND user_id = $2',
+        `SELECT 1 FROM channel_members cm
+         JOIN channels c ON c.id = cm.channel_id
+         WHERE cm.channel_id = $1 AND cm.user_id = $2 AND c.deleted_at IS NULL`,
         [channelId, userId]
       );
       if (!memberCheck.rows[0]) return;

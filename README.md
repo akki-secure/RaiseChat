@@ -50,6 +50,7 @@ workspace_members
 
 channels
   id (PK)  workspace_id (FK)  name  type(public|private)  created_by (FK→users)  created_at
+  deleted_at  ※論理削除。削除時に name の末尾へ `~deleted~<id先頭8桁>` を足し、同名で作り直せるようにする
 
 channel_members
   channel_id (FK)  user_id (FK)  joined_at  last_read_at
