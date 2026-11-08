@@ -1,20 +1,11 @@
 import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
-import jwt from 'jsonwebtoken';
 import pool from '../../config/db.js';
 import { requireAuth, AuthRequest } from '../../middleware/auth.js';
 import { generateSecret, verifyTotpCode, generateQRCodeDataURL } from './totpService.js';
+import { readPending, completeFactor, respondIfLocked, failAttempt } from '../mfa/mfaFlow.js';
 
 const router = Router();
-
-const PENDING_COOKIE = 'pending_token';
-const PENDING_EXPIRES_MS = 15 * 60 * 1000; // 15分
-
-function getPendingSecret(): string {
-  const s = process.env.JWT_SECRET;
-  if (!s) throw new Error('JWT_SECRET is not set');
-  return s;
-}
 
 // GET /api/totp/setup — 未有効化ユーザー向けにシークレット＋QRコードを発行
 router.get('/setup', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -68,46 +59,16 @@ router.post('/verify', async (req: AuthRequest, res: Response, next: NextFunctio
   try {
     const { code } = z.object({ code: z.string().length(6) }).parse(req.body);
 
-    const pendingToken = req.cookies?.[PENDING_COOKIE];
-    if (!pendingToken) { res.status(401).json({ error: '認証セッションが見つかりません' }); return; }
+    const pending = readPending(req);
+    if (!pending) { res.status(401).json({ error: '認証セッションが見つかりません' }); return; }
+    if (await respondIfLocked(res, pending.userId)) return;
 
-    let payload: { userId: string; username: string; totp_pending: boolean };
-    try {
-      payload = jwt.verify(pendingToken, getPendingSecret()) as typeof payload;
-    } catch {
-      res.status(401).json({ error: '認証セッションが期限切れです' });
+    const { rows } = await pool.query('SELECT totp_secret FROM users WHERE id = $1', [pending.userId]);
+    if (!rows[0]?.totp_secret || !verifyTotpCode(rows[0].totp_secret, code)) {
+      await failAttempt(res, pending.userId, 'コードが正しくありません');
       return;
     }
-    if (!payload.totp_pending) { res.status(401).json({ error: '無効なトークンです' }); return; }
-
-    const { rows } = await pool.query(
-      'SELECT totp_secret FROM users WHERE id = $1',
-      [payload.userId]
-    );
-    const user = rows[0];
-    if (!user?.totp_secret || !verifyTotpCode(user.totp_secret, code)) {
-      res.status(422).json({ error: 'コードが正しくありません' });
-      return;
-    }
-
-    await pool.query("UPDATE users SET status = 'online' WHERE id = $1", [payload.userId]);
-
-    const { signToken } = await import('../../utils/jwt.js');
-    const token = signToken({ userId: payload.userId, username: payload.username });
-
-    res.clearCookie(PENDING_COOKIE);
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    const { rows: userRows } = await pool.query(
-      'SELECT id, username, display_name, avatar_url, status FROM users WHERE id = $1',
-      [payload.userId]
-    );
-    res.json({ user: userRows[0] });
+    res.json(await completeFactor(res, pending, 'totp')); // { user } か { remaining }
   } catch (err) {
     next(err);
   }
@@ -125,6 +86,12 @@ router.delete('/disable', requireAuth, async (req: AuthRequest, res: Response, n
     const user = rows[0];
     if (!user?.totp_enabled) { res.status(400).json({ error: '2段階認証は無効です' }); return; }
 
+    const { rows: m } = await pool.query('SELECT mfa_mode FROM users WHERE id = $1', [req.user!.userId]);
+    if (m[0]?.mfa_mode === 'both') {
+      res.status(409).json({ error: '「両方必須」の間はTOTPを無効にできません。先に「どちらか一方」へ切り替えてください' });
+      return;
+    }
+
     if (!verifyTotpCode(user.totp_secret, code)) {
       res.status(422).json({ error: 'コードが正しくありません' });
       return;
@@ -140,5 +107,4 @@ router.delete('/disable', requireAuth, async (req: AuthRequest, res: Response, n
   }
 });
 
-export { PENDING_COOKIE, PENDING_EXPIRES_MS };
 export default router;

@@ -1,11 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import pool from '../config/db.js';
 import { signToken } from '../utils/jwt.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
-import { PENDING_COOKIE, PENDING_EXPIRES_MS } from '../features/totp/totpRouter.js';
+import { availableFactors, issuePending, respondIfLocked } from '../features/mfa/mfaFlow.js';
 import { isBlockedPassword } from '../utils/blockedPasswords.js';
 
 const router = Router();
@@ -102,22 +101,12 @@ router.post('/login', async (req: Request, res: Response, next: NextFunction) =>
       return;
     }
 
-    // 2FA有効なら pending_token を発行してTOTPステップへ
-    if (user.totp_enabled) {
-      const jwtSecret = process.env.JWT_SECRET;
-      if (!jwtSecret) throw new Error('JWT_SECRET is not set');
-      const pendingToken = jwt.sign(
-        { userId: user.id, username: user.username, totp_pending: true },
-        jwtSecret,
-        { expiresIn: '15m' }
-      );
-      res.cookie(PENDING_COOKIE, pendingToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: (process.env.NODE_ENV === 'production' ? 'strict' : 'lax') as 'strict' | 'lax',
-        maxAge: PENDING_EXPIRES_MS,
-      });
-      res.json({ requireTotp: true });
+    // 2FA有効（TOTP または パスキー）なら pending_token を発行して2FAステップへ
+    const { mode, factors } = await availableFactors(user.id);
+    if (factors.length > 0) {
+      if (await respondIfLocked(res, user.id)) return; // パスワードが合った後だけ判定
+      issuePending(res, { userId: user.id, username: user.username, passed: [] });
+      res.json({ requireTotp: true, methods: factors, mfa_mode: mode });
       return;
     }
 
@@ -160,7 +149,7 @@ router.delete('/logout', requireAuth, async (req: AuthRequest, res: Response, ne
 router.get('/me', requireAuth, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const result = await pool.query(
-      'SELECT id, username, display_name, avatar_url, status, totp_enabled, security_question IS NOT NULL AS has_security_question FROM users WHERE id = $1',
+      'SELECT id, username, display_name, avatar_url, status, totp_enabled, security_question IS NOT NULL AS has_security_question, EXISTS (SELECT 1 FROM passkeys WHERE user_id = users.id AND deleted_at IS NULL) AS passkey_enabled FROM users WHERE id = $1',
       [req.user!.userId]
     );
     res.json({ user: result.rows[0] });
