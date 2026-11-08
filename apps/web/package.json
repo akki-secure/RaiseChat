@@ -8,7 +8,7 @@
     "start": "next start",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
-    "lint": "eslint 'app/**/*.tsx' 'components/**/*.tsx' 'hooks/**/*.ts' 'stores/**/*.ts' 'lib/**/*.ts'"
+    "lint": "eslint 'app/**/*.tsx' 'components/**/*.tsx' 'features/**/*.ts' 'features/**/*.tsx' 'hooks/**/*.ts' 'stores/**/*.ts' 'lib/**/*.ts'"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^14.0.0",

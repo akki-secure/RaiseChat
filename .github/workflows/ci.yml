@@ -63,8 +63,11 @@ jobs:
 
       - name: Run migrations
         run: |
-          PGPASSWORD=testpassword psql -h localhost -U raisechat_app -d raisechat_test \
-            -f src/db/migrations/001_init.sql
+          for f in $(ls src/db/migrations/*.sql | sort); do
+            echo "apply $f"
+            PGPASSWORD=testpassword psql -h localhost -U raisechat_app -d raisechat_test \
+              -v ON_ERROR_STOP=1 -f "$f"
+          done
 
       - name: Test
         run: pnpm test
@@ -117,9 +120,17 @@ jobs:
           fetch-depth: 0 # 履歴全体をスキャンするため
 
       - name: Install gitleaks
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz \
-            | tar -xz -C /usr/local/bin gitleaks
+          for i in 1 2 3 4 5; do
+            gh release download v8.30.1 --repo gitleaks/gitleaks \
+              --pattern 'gitleaks_8.30.1_linux_x64.tar.gz' --dir "$RUNNER_TEMP" --clobber && break
+            echo "ダウンロードに失敗しました（${i}回目）"
+            [ "$i" = 5 ] && exit 1
+            sleep $((i * 5))
+          done
+          tar -xz -C /usr/local/bin -f "$RUNNER_TEMP/gitleaks_8.30.1_linux_x64.tar.gz" gitleaks
 
       - name: Scan history
         run: gitleaks detect --source . --config .gitleaks.toml --redact
