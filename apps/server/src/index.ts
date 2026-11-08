@@ -8,6 +8,9 @@ import rateLimit from 'express-rate-limit';
 
 import authRouter from './routes/auth.js';
 import totpRouter from './features/totp/totpRouter.js';
+import passkeyRouter from './features/passkey/passkeyRouter.js';
+import mfaRouter from './features/mfa/mfaRouter.js';
+import { loginLimiter } from './features/mfa/loginLimiter.js';
 import workspacesRouter from './routes/workspaces.js';
 import channelsRouter from './routes/channels.js';
 import messagesRouter from './routes/messages.js';
@@ -49,6 +52,7 @@ app.use(cookieParser());
 app.use(requestLogger);
 
 // ── ルーティング ──
+app.use('/api/auth/login',                        loginLimiter);
 app.use('/api/auth',                              authLimiter, authRouter);
 app.use('/api/workspaces',                        workspacesRouter);
 app.use('/api/workspaces/:wid/channels',          channelsRouter);
@@ -57,6 +61,8 @@ app.use('/api/messages/:mid/reactions',           reactionsRouter);
 app.use('/api/workspaces/:wid/dms',               dmsRouter);
 app.use('/api/upload',                            uploadLimiter, uploadRouter);
 app.use('/api/totp',                              totpRouter);
+app.use('/api/passkey',                           passkeyRouter);
+app.use('/api/mfa',                               mfaRouter);
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
