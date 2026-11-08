@@ -55,6 +55,8 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
     >
       <div className="flex-shrink-0 w-9 h-9 rounded-full bg-indigo-700 flex items-center justify-center text-xs font-bold text-white mt-0.5">
         {msg.user?.avatar_url ? (
+          // 外部URLのアバターで寸法が不定のため、next/image ではなく <img> を使う
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={msg.user.avatar_url} alt={displayName} className="w-full h-full rounded-full object-cover" />
         ) : (
           initial
@@ -109,6 +111,8 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
           <div className="mt-1 flex flex-wrap gap-2">
             {msg.attachments.map((a) =>
               a.file_type.startsWith('image/') ? (
+                // 添付画像は外部S3のURLで寸法が不定のため、next/image ではなく <img> を使う
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   key={a.id}
                   src={a.url}
