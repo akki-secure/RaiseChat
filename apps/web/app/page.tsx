@@ -7,11 +7,11 @@ import { useAppStore, User, Workspace } from '@/stores/useAppStore';
 
 export default function RootPage() {
   const router = useRouter();
-  const { me, setMe, setWorkspaces } = useAppStore();
+  const { setMe, setWorkspaces } = useAppStore();
 
   useEffect(() => {
-    if (me) return;
-
+    // ログイン直後は me がセット済みだが、遷移先の決定にはワークスペース一覧が必要なので
+    // me の有無に関わらず必ず取得してリダイレクトする
     api
       .get<{ user: User }>('/auth/me')
       .then(async ({ user }) => {
@@ -27,7 +27,7 @@ export default function RootPage() {
       .catch(() => {
         router.replace('/auth/login');
       });
-  }, [me, router, setMe, setWorkspaces]);
+  }, [router, setMe, setWorkspaces]);
 
   return null;
 }
