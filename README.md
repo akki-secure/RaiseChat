@@ -63,8 +63,9 @@ attachments
   id (PK)  message_id (FK)  url  file_type  size  created_at
 
 reactions
-  id (PK)  message_id (FK)  user_id (FK)  emoji  created_at
+  id (PK)  message_id (FK)  user_id (FK)  emoji  created_at  deleted_at
   UNIQUE(message_id, user_id, emoji)
+  ※論理削除。取り消しは deleted_at を設定し、付け直しは deleted_at を NULL に戻す
 
 direct_messages
   id (PK)  workspace_id (FK)  sender_id (FK→users)  receiver_id (FK→users)

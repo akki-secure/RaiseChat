@@ -63,10 +63,10 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
               (SELECT json_agg(json_build_object(
                 'emoji', sub.emoji,
                 'count', sub.cnt,
-                'reacted', EXISTS(SELECT 1 FROM reactions rx WHERE rx.message_id = m.id AND rx.emoji = sub.emoji AND rx.user_id = $1)
+                'reacted', EXISTS(SELECT 1 FROM reactions rx WHERE rx.message_id = m.id AND rx.emoji = sub.emoji AND rx.user_id = $1 AND rx.deleted_at IS NULL)
               )) FROM (
                 SELECT rr.emoji, COUNT(rr.id) AS cnt
-                FROM reactions rr WHERE rr.message_id = m.id GROUP BY rr.emoji
+                FROM reactions rr WHERE rr.message_id = m.id AND rr.deleted_at IS NULL GROUP BY rr.emoji
               ) sub) AS reactions,
               (SELECT json_agg(json_build_object('url', a.url, 'file_type', a.file_type, 'size', a.size))
                FROM attachments a WHERE a.message_id = m.id) AS attachments
