@@ -2,14 +2,14 @@
 
 import { useState, FormEvent } from 'react';
 import { api } from '@/lib/api';
-import { User } from '@/stores/useAppStore';
+import { VerifyResult } from '@/features/mfa/types';
 
 interface Props {
-  onSuccess: (user: User) => void;
+  onResult: (r: VerifyResult) => void;
   onBack: () => void;
 }
 
-export default function TotpVerifyStep({ onSuccess, onBack }: Props) {
+export default function TotpVerifyStep({ onResult, onBack }: Props) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -20,8 +20,7 @@ export default function TotpVerifyStep({ onSuccess, onBack }: Props) {
     setLoading(true);
     setError('');
     try {
-      const { user } = await api.post<{ user: User }>('/totp/verify', { code });
-      onSuccess(user);
+      onResult(await api.post<VerifyResult>('/totp/verify', { code }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'コードが正しくありません');
       setCode('');

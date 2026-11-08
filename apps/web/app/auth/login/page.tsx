@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAppStore, User } from '@/stores/useAppStore';
-import TotpVerifyStep from '@/features/totp/TotpVerifyStep';
+import MfaStep from '@/features/mfa/MfaStep';
+import { Method } from '@/features/mfa/types';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,8 +15,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  // パスワード認証後にTOTPが必要な場合 true になる
-  const [requireTotp, setRequireTotp] = useState(false);
+  // パスワード認証後に2段階認証が必要な場合、使える手段が入る
+  const [mfa, setMfa] = useState<{ methods: Method[]; mode: 'any' | 'both' } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
@@ -23,10 +24,11 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await api.post<{ user?: User; requireTotp?: boolean }>('/auth/login', { username, password });
-      if (res.requireTotp) {
-        // 2FA有効ユーザー → 6桁コード入力ステップへ
-        setRequireTotp(true);
+      const res = await api.post<{ user?: User; requireTotp?: boolean; methods?: Method[]; mfa_mode?: 'any' | 'both' }>(
+        '/auth/login', { username, password });
+      if (res.requireTotp && res.methods?.length) {
+        // 2FA有効ユーザー → 2段階認証ステップへ
+        setMfa({ methods: res.methods, mode: res.mfa_mode ?? 'any' });
       } else if (res.user) {
         setMe(res.user);
         router.replace('/');
@@ -38,7 +40,7 @@ export default function LoginPage() {
     }
   }
 
-  function handleTotpSuccess(user: User) {
+  function handleMfaSuccess(user: User) {
     setMe(user);
     router.replace('/');
   }
@@ -49,10 +51,12 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-white mb-6 text-center">RaiseChat</h1>
 
         {/* 2FA有効ユーザー: パスワード認証後にこちらへ切り替わる */}
-        {requireTotp ? (
-          <TotpVerifyStep
-            onSuccess={handleTotpSuccess}
-            onBack={() => { setRequireTotp(false); setPassword(''); }}
+        {mfa ? (
+          <MfaStep
+            methods={mfa.methods}
+            mode={mfa.mode}
+            onSuccess={handleMfaSuccess}
+            onBack={() => { setMfa(null); setPassword(''); }}
           />
         ) : (
           <>
