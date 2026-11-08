@@ -5,6 +5,8 @@ import { api } from '@/lib/api';
 import { useAppStore, User } from '@/stores/useAppStore';
 import { validatePassword } from '@/lib/passwordValidation';
 import TotpSetupModal from '@/features/totp/TotpSetupModal';
+import PasskeySettings from '@/features/passkey/PasskeySettings';
+import MfaSettings from '@/features/mfa/MfaSettings';
 
 function EyeIcon({ open }: { open: boolean }) {
   return open ? (
@@ -55,6 +57,8 @@ export default function AccountSettings() {
   const [disableCode, setDisableCode] = useState('');
   const [totpMsg, setTotpMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
   const [totpLoading, setTotpLoading] = useState(false);
+  // TOTP・パスキーの変更を MfaSettings に伝える（状態の再取得用）
+  const [mfaVersion, setMfaVersion] = useState(0);
 
   // 秘密の質問
   const [sqQuestion, setSqQuestion] = useState(SECURITY_QUESTIONS[0]);
@@ -118,6 +122,7 @@ export default function AccountSettings() {
       setTotpEnabled(false);
       setMe({ ...me!, totp_enabled: false });
       setTotpDisabledSuccess(true);
+      setMfaVersion((v) => v + 1);
     } catch (err) {
       setTotpMsg({ type: 'err', text: err instanceof Error ? err.message : '無効化に失敗しました' });
     } finally {
@@ -338,6 +343,21 @@ export default function AccountSettings() {
 
       <div className="border-t border-gray-700" />
 
+      {/* ── パスキー（指紋認証）── */}
+      <PasskeySettings
+        onChanged={(count) => {
+          setMfaVersion((v) => v + 1);
+          if (me && (me.passkey_enabled ?? false) !== count > 0) setMe({ ...me, passkey_enabled: count > 0 });
+        }}
+      />
+
+      <div className="border-t border-gray-700" />
+
+      {/* ── リカバリーコード・認証方法 ── */}
+      <MfaSettings version={mfaVersion} />
+
+      <div className="border-t border-gray-700" />
+
       {/* ── 秘密の質問 ── */}
       <section>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'center' }} className="mb-2">
@@ -409,6 +429,7 @@ export default function AccountSettings() {
             setMe({ ...me!, totp_enabled: true });
             setShowTotpSetup(false);
             setTotpMsg({ type: 'ok', text: '2段階認証を有効にしました' });
+            setMfaVersion((v) => v + 1);
           }}
         />
       )}

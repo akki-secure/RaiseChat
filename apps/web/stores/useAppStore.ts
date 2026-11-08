@@ -9,6 +9,7 @@ export interface User {
   avatar_url: string | null;
   status: UserStatus;
   totp_enabled?: boolean;
+  passkey_enabled?: boolean;
   has_security_question?: boolean;
 }
 
