@@ -237,33 +237,4 @@ router.post('/join', async (req: AuthRequest, res: Response, next: NextFunction)
   }
 });
 
-// POST /api/workspaces/:id/kick — ユーザーキック (owner only)
-router.post('/:id/kick', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const { user_id } = z.object({ user_id: z.string().uuid() }).parse(req.body);
-    const requesterId = req.user!.userId;
-
-    const member = await pool.query(
-      "SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
-      [req.params.id, requesterId]
-    );
-    if (member.rows[0]?.role !== 'owner') {
-      res.status(403).json({ error: '権限がありません' });
-      return;
-    }
-    if (user_id === requesterId) {
-      res.status(400).json({ error: '自分自身をキックできません' });
-      return;
-    }
-
-    await pool.query(
-      'DELETE FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
-      [req.params.id, user_id]
-    );
-    res.json({ message: 'ユーザーをキックしました' });
-  } catch (err) {
-    next(err);
-  }
-});
-
 export default router;

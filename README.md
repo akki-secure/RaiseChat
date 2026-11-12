@@ -133,7 +133,6 @@ recovery_codes
 | GET | `/:id/members/:uid` | 特定メンバー情報 |
 | GET | `/:id/search?q=` | 全文検索 |
 | POST | `/:id/invite` | 招待コード再生成 |
-| POST | `/:id/kick` | メンバーキック |
 
 ### チャンネル `/api/workspaces/:wid/channels`
 
