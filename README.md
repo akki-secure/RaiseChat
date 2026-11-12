@@ -218,20 +218,36 @@ pnpm install
 
 # 2. 環境変数
 cp .env.example apps/server/.env
-# .env を編集して JWT_SECRET, DB_*, AWS_*, WEBAUTHN_* を設定
+# .env を編集して JWT_SECRET, DB_*（DB_ADMIN_* を含む）, AWS_*, WEBAUTHN_* を設定
+# DB_USER は raisechat_app 固定。DB_ADMIN_USER は別名にする（例: raisechat_admin）
 # 開発時の例: WEBAUTHN_RP_ID=localhost / WEBAUTHN_RP_NAME=RaiseChat / WEBAUTHN_ORIGIN=http://localhost:3000
 
-# 3. DB 起動
+# 3. DB 起動（初回起動時に、アプリ専用ユーザーの作成とマイグレーション適用まで自動で行う）
 pnpm db:up
 
-# 4. DB マイグレーション
-for f in apps/server/src/db/migrations/*.sql; do psql -U raisechat -d raisechat -f "$f"; done
-
-# 5. 開発サーバー起動
+# 4. 開発サーバー起動
 pnpm dev
 # server: http://localhost:4000
 # web:    http://localhost:3000
 ```
+
+### 既存のDBを最小権限に移行する（初回起動済みのボリュームがある場合）
+
+初期化スクリプトは初回起動時にしか動かないため、既存のDBには次を手動で一度だけ実行する。データは消えない。
+
+```bash
+# 現在のアプリ用ユーザー（旧: スーパーユーザー）で接続して、管理用ユーザーを作り、所有権を移す
+psql -h localhost -p 5433 -U raisechat_app -d raisechat <<'SQL'
+CREATE ROLE raisechat_admin SUPERUSER LOGIN PASSWORD '<DB_ADMIN_PASSWORD>';
+REASSIGN OWNED BY raisechat_app TO raisechat_admin;
+SQL
+
+# 管理用ユーザーで、アプリ用ユーザーを最小権限に降格（スーパーユーザー権限を外し、SELECT/INSERT/UPDATE のみ付与）
+psql -h localhost -p 5433 -U raisechat_admin -d raisechat \
+  -v app_password='<DB_PASSWORD>' -f apps/server/src/db/roles/app_role.sql
+```
+
+以後、新しいマイグレーションは `raisechat_admin` で適用する（`-U raisechat_admin`）。
 
 ### テスト実行
 
@@ -272,6 +288,7 @@ pnpm secret:scan
 | SQLインジェクション | pg プリペアドステートメント |
 | 入力バリデーション | Zod スキーマ |
 | シークレット管理 | .env + .gitignore、gitleaks でスキャン |
+| DB権限の分離 | マイグレーション用の管理ユーザーと、アプリ用の最小権限ユーザー（`raisechat_app`：SELECT/INSERT/UPDATE のみ）を分離。アプリからは DELETE・TRUNCATE・DROP を実行できない（CI で検証） |
 
 ---
 

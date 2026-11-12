@@ -1,19 +1,24 @@
+# 起動は `pnpm db:up`（apps/server/.env を読み込む）
+# 管理用ユーザー（DB_ADMIN_USER）はマイグレーション専用。アプリは最小権限の raisechat_app で接続する。
 services:
   postgres:
     image: postgres:16-alpine
     container_name: raisechat_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: raisechat
-      POSTGRES_USER: raisechat_app
-      POSTGRES_PASSWORD: localdev_password_change_in_prod
+      POSTGRES_DB: ${DB_NAME:?DB_NAME を設定してください}
+      POSTGRES_USER: ${DB_ADMIN_USER:?DB_ADMIN_USER を設定してください}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?DB_ADMIN_PASSWORD を設定してください}
+      DB_APP_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD を設定してください}
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./apps/server/src/db/migrations:/docker-entrypoint-initdb.d:ro
+      - ./apps/server/src/db/init:/docker-entrypoint-initdb.d:ro
+      - ./apps/server/src/db/roles:/roles:ro
+      - ./apps/server/src/db/migrations:/migrations:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U raisechat_app -d raisechat"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5

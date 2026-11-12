@@ -12,8 +12,8 @@
     "lint": "pnpm --filter server lint && pnpm --filter web lint",
     "secret:scan": "gitleaks detect --source . --config .gitleaks.toml --no-git --redact",
     "secret:scan:history": "gitleaks detect --source . --config .gitleaks.toml --redact",
-    "db:up": "docker compose up -d",
-    "db:down": "docker compose down"
+    "db:up": "docker compose --env-file apps/server/.env up -d",
+    "db:down": "docker compose --env-file apps/server/.env down"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
