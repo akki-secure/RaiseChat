@@ -18,8 +18,8 @@ jobs:
         image: postgres:16
         env:
           POSTGRES_DB: raisechat_test
-          POSTGRES_USER: raisechat_app
-          POSTGRES_PASSWORD: testpassword
+          POSTGRES_USER: raisechat_admin
+          POSTGRES_PASSWORD: adminpassword
         ports:
           - 5432:5432
         options: >-
@@ -61,13 +61,27 @@ jobs:
       - name: Typecheck
         run: pnpm build
 
-      - name: Run migrations
+      - name: Create app role and run migrations (admin)
         run: |
+          export PGPASSWORD=adminpassword
+          psql -h localhost -U raisechat_admin -d raisechat_test \
+            -v ON_ERROR_STOP=1 -v app_password=testpassword -f src/db/roles/app_role.sql
           for f in $(ls src/db/migrations/*.sql | sort); do
             echo "apply $f"
-            PGPASSWORD=testpassword psql -h localhost -U raisechat_app -d raisechat_test \
+            psql -h localhost -U raisechat_admin -d raisechat_test \
               -v ON_ERROR_STOP=1 -f "$f"
           done
+
+      - name: Verify app role is least-privilege
+        run: |
+          export PGPASSWORD=testpassword
+          q() { psql -h localhost -U raisechat_app -d raisechat_test -tA -c "$1"; }
+          q "SELECT count(*) FROM users" >/dev/null
+          [ "$(q "SELECT rolsuper FROM pg_roles WHERE rolname = current_user")" = "f" ]
+          if q "DELETE FROM users" 2>/dev/null; then echo "DELETE が許可されています"; exit 1; fi
+          if q "TRUNCATE users" 2>/dev/null; then echo "TRUNCATE が許可されています"; exit 1; fi
+          if q "DROP TABLE users" 2>/dev/null; then echo "DROP が許可されています"; exit 1; fi
+          if q "CREATE TABLE ci_probe (i int)" 2>/dev/null; then echo "CREATE が許可されています"; exit 1; fi
 
       - name: Test
         run: pnpm test
