@@ -233,21 +233,55 @@ pnpm dev
 
 ### 既存のDBを最小権限に移行する（初回起動済みのボリュームがある場合）
 
-初期化スクリプトは初回起動時にしか動かないため、既存のDBには次を手動で一度だけ実行する。データは消えない。
+初期化スクリプトは初回起動時にしか動かないため、既存のDBには次を手動で一度だけ実行する。データは消えない。事前に `pg_dump` でバックアップを取ること。
+
+まず、`raisechat_app` がブートストラップ（最初に作られた）スーパーユーザーかを確認する。
 
 ```bash
-# 現在のアプリ用ユーザー（旧: スーパーユーザー）で接続して、管理用ユーザーを作り、所有権を移す
-psql -h localhost -p 5433 -U raisechat_app -d raisechat <<'SQL'
+psql -h localhost -p <port> -d raisechat -tA -c "SELECT oid FROM pg_roles WHERE rolname = 'raisechat_app'"
+# oid が 10 なら「ブートストラップ」（Docker を旧設定で初期化した場合）→ パターンB
+# それ以外（通常のロール）                                           → パターンA
+```
+
+**パターンA: `raisechat_app` が通常のロールの場合**
+
+```bash
+# スーパーユーザー（例: 自分のOSユーザー）で、管理用ユーザーを作り、所有権を移す
+psql -h localhost -p <port> -d raisechat <<'SQL'
 CREATE ROLE raisechat_admin SUPERUSER LOGIN PASSWORD '<DB_ADMIN_PASSWORD>';
 REASSIGN OWNED BY raisechat_app TO raisechat_admin;
 SQL
 
-# 管理用ユーザーで、アプリ用ユーザーを最小権限に降格（スーパーユーザー権限を外し、SELECT/INSERT/UPDATE のみ付与）
-psql -h localhost -p 5433 -U raisechat_admin -d raisechat \
+# アプリ用ユーザーを最小権限にする（SELECT/INSERT/UPDATE のみ付与）
+psql -h localhost -p <port> -U raisechat_admin -d raisechat \
   -v app_password='<DB_PASSWORD>' -f apps/server/src/db/roles/app_role.sql
 ```
 
-以後、新しいマイグレーションは `raisechat_admin` で適用する（`-U raisechat_admin`）。
+**パターンB: `raisechat_app` がブートストラップ（oid=10）の場合**
+
+ブートストラップのロールは、所有権の移管（`REASSIGN OWNED`）も降格もできない（Postgres 内部のオブジェクトを所有しているため）。管理用ユーザーを作って個別に付け替え、旧ロールを改名してログイン不可にする。
+
+```bash
+psql -h localhost -p <port> -U raisechat_app -d raisechat <<'SQL'
+CREATE ROLE raisechat_admin SUPERUSER LOGIN PASSWORD '<DB_ADMIN_PASSWORD>';
+SQL
+
+psql -h localhost -p <port> -U raisechat_admin -d raisechat <<'SQL'
+BEGIN;
+SELECT format('ALTER TABLE %I.%I OWNER TO raisechat_admin', schemaname, tablename) FROM pg_tables WHERE schemaname='public' \gexec
+SELECT format('ALTER SEQUENCE %I.%I OWNER TO raisechat_admin', schemaname, sequencename) FROM pg_sequences WHERE schemaname='public' \gexec
+SELECT format('ALTER DATABASE %I OWNER TO raisechat_admin', current_database()) \gexec
+ALTER ROLE raisechat_app RENAME TO raisechat_boot;
+ALTER ROLE raisechat_boot NOLOGIN;
+COMMIT;
+SQL
+
+# 新しい最小権限の raisechat_app を作る
+psql -h localhost -p <port> -U raisechat_admin -d raisechat \
+  -v app_password='<DB_PASSWORD>' -f apps/server/src/db/roles/app_role.sql
+```
+
+以後、新しいマイグレーションは `raisechat_admin` で適用する（`-U raisechat_admin`）。移行後は、アプリ用ユーザーで `DELETE`・`TRUNCATE`・`DROP`・`CREATE` が拒否されることを確認する。
 
 ### テスト実行
 
