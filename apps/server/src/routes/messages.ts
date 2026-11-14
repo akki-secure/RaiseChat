@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import pool from '../config/db.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
+import { messageLimiter } from '../middleware/rateLimiter.js';
 import { getIo } from '../socket/ioInstance.js';
 
 const router = Router({ mergeParams: true });
@@ -92,7 +93,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
 });
 
 // POST /api/channels/:cid/messages — メッセージ送信
-router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/', messageLimiter, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { cid } = req.params;
     const userId = req.user!.userId;
