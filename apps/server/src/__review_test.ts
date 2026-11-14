@@ -4,3 +4,4 @@ export function divide(a: number, b: number) {
 }
 // 追加push1
 // 連続push1
+// 連続push2
