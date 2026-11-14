@@ -8,7 +8,7 @@ import { UploadedAttachment } from '@/features/fileUpload/types';
 
 interface Props {
   placeholder?: string;
-  onSend: (content: string, attachments?: UploadedAttachment[]) => void;
+  onSend: (content: string, attachments?: UploadedAttachment[]) => void | Promise<void>;
   /** true のとき ＋ 添付メニューを表示する（チャンネルのみ） */
   allowAttachments?: boolean;
 }
@@ -20,22 +20,29 @@ export default function MessageInput({ placeholder = 'メッセージを入力�
   const [attachments, setAttachments] = useState<UploadedAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   function submit() {
     const trimmed = text.trim();
     if ((!trimmed && attachments.length === 0) || uploading) return;
-    if (attachments.length > 0) {
-      onSend(trimmed, attachments.map(({ url, file_type, size }) => ({ url, file_type, size })));
-    } else {
-      onSend(trimmed);
-    }
+    const sentAttachments = attachments;
+    const result = sentAttachments.length > 0
+      ? onSend(trimmed, sentAttachments.map(({ url, file_type, size }) => ({ url, file_type, size })))
+      : onSend(trimmed);
     setText('');
     setAttachments([]);
     setUploadError(null);
+    setSendError(null);
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
     }
+    // 失敗したら入力内容を戻して理由を表示する。戻すのは、その間に新しく打ち始めていない場合だけ
+    Promise.resolve(result).catch((e) => {
+      setText((cur) => (cur === '' ? trimmed : cur));
+      setAttachments((cur) => (cur.length === 0 ? sentAttachments : cur));
+      setSendError(e instanceof Error ? e.message : '送信に失敗しました');
+    });
   }
 
   async function handleSelect(file: File) {
@@ -92,6 +99,7 @@ export default function MessageInput({ placeholder = 'メッセージを入力�
       </div>
       </div>
       {uploadError && <p role="alert" className="mt-1 text-xs text-red-400">{uploadError}</p>}
+      {sendError && <p role="alert" className="mt-1 text-xs text-red-400">{sendError}</p>}
       <p className="mt-1 text-xs text-gray-600">送信ボタンで送信 / Enter で改行</p>
     </div>
   );
