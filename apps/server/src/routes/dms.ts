@@ -2,6 +2,7 @@ import { Router, Response, NextFunction } from 'express';
 import { z } from 'zod';
 import pool from '../config/db.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
+import { messageLimiter } from '../middleware/rateLimiter.js';
 import { getIo } from '../socket/ioInstance.js';
 
 const router = Router({ mergeParams: true });
@@ -49,7 +50,7 @@ router.get('/:uid', async (req: AuthRequest, res: Response, next: NextFunction) 
 });
 
 // POST /api/workspaces/:wid/dms/:uid — DM送信
-router.post('/:uid', async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/:uid', messageLimiter, async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { wid, uid } = req.params;
     const userId = req.user!.userId;
