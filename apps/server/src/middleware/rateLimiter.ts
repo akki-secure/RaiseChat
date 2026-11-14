@@ -2,11 +2,13 @@ import rateLimit from 'express-rate-limit';
 import type { AuthRequest } from './auth.js';
 
 // 認証エンドポイント: 15分に100回まで（ブルートフォース対策）
+// 自分のログイン状態を読むだけの GET /me は、画面を開くたびに呼ばれるうえ攻撃に使えないので数えない
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.method === 'GET' && req.path === '/me',
   message: { error: 'リクエストが多すぎます。しばらく待ってから再試行してください。' },
 });
 
