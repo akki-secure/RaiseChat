@@ -6,7 +6,7 @@ import { countPasskeys } from '../passkey/passkeyService.js';
 import { MAX_FAILED_ATTEMPTS, getLockRemainingMs, recordFailure, resetFailures } from './mfaService.js';
 
 export const PENDING_COOKIE = 'pending_token';
-export const PENDING_EXPIRES_MS = 15 * 60 * 1000; // 15分
+const PENDING_EXPIRES_MS = 15 * 60 * 1000; // 15分
 
 export type Factor = 'totp' | 'passkey';
 export interface Pending { userId: string; username: string; passed: Factor[] }
