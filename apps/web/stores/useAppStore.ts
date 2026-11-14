@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type UserStatus = 'online' | 'away' | 'busy' | 'offline';
+type UserStatus = 'online' | 'away' | 'busy' | 'offline';
 
 export interface User {
   id: string;
@@ -29,14 +29,14 @@ export interface Channel {
   created_by: string;
 }
 
-export interface Attachment {
+interface Attachment {
   id: string;
   url: string;
   file_type: string;
   size: number;
 }
 
-export interface Reaction {
+interface Reaction {
   emoji: string;
   count: number;
   reacted: boolean;
