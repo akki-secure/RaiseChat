@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
+import { disconnectSocket } from '@/lib/socket';
 import { useAppStore, Channel, Workspace, User } from '@/stores/useAppStore';
 import SettingsModal from '@/features/settings/SettingsModal';
 
@@ -45,6 +46,7 @@ export default function Sidebar() {
 
   async function handleLogout() {
     await api.post('/auth/logout', {}).catch(() => {});
+    disconnectSocket();
     router.replace('/auth/login');
   }
 
