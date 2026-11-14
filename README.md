@@ -427,3 +427,7 @@ apps/web/features/
   mfa/RecoveryCodeStep.tsx            # ログイン時のリカバリーコード入力
   mfa/MfaSettings.tsx                 # 設定: 認証モード切替・リカバリーコード発行
 ```
+
+## ライセンス
+
+[MIT License](./LICENSE)
