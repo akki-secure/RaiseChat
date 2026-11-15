@@ -8,12 +8,27 @@ import { getIo } from '../socket/ioInstance.js';
 const router = Router({ mergeParams: true });
 router.use(requireAuth);
 
+// 本人がワークスペースの現メンバー（キックされていない）か確認する。違えば 403 を返して false
+async function assertSelfMember(wid: string, userId: string, res: Response): Promise<boolean> {
+  const self = await pool.query(
+    'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL',
+    [wid, userId]
+  );
+  if (!self.rows[0]) {
+    res.status(403).json({ error: 'このワークスペースのメンバーではありません' });
+    return false;
+  }
+  return true;
+}
+
 // GET /api/workspaces/:wid/dms/:uid — DM一覧
 router.get('/:uid', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { wid, uid } = req.params;
     const userId = req.user!.userId;
     const { before, limit = '50' } = req.query;
+
+    if (!(await assertSelfMember(wid, userId, res))) return;
 
     const limitNum = Math.min(parseInt(limit as string, 10), 100);
     const params: unknown[] = [wid, userId, uid, limitNum];
@@ -56,8 +71,10 @@ router.post('/:uid', messageLimiter, async (req: AuthRequest, res: Response, nex
     const userId = req.user!.userId;
     const { content } = z.object({ content: z.string().min(1).max(4000) }).parse(req.body);
 
+    if (!(await assertSelfMember(wid, userId, res))) return;
+
     const wsMember = await pool.query(
-      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL',
       [wid, uid]
     );
     if (!wsMember.rows[0]) {

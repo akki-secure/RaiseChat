@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAppStore, User } from '@/stores/useAppStore';
 import MfaStep from '@/features/mfa/MfaStep';
 import { Method } from '@/features/mfa/types';
+import { nextFromLocation, withNext } from '@/lib/safeNext';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +19,9 @@ export default function LoginPage() {
   // パスワード認証後に2段階認証が必要な場合、使える手段が入る
   const [mfa, setMfa] = useState<{ methods: Method[]; mode: 'any' | 'both' } | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  // 招待リンクから来た場合の戻り先。描画の食い違いを避けるため、マウント後に読む
+  const [next, setNext] = useState('/');
+  useEffect(() => { setNext(nextFromLocation()); }, []);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -31,7 +35,7 @@ export default function LoginPage() {
         setMfa({ methods: res.methods, mode: res.mfa_mode ?? 'any' });
       } else if (res.user) {
         setMe(res.user);
-        router.replace('/');
+        router.replace(nextFromLocation());
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'ログインに失敗しました');
@@ -42,7 +46,7 @@ export default function LoginPage() {
 
   function handleMfaSuccess(user: User) {
     setMe(user);
-    router.replace('/');
+    router.replace(nextFromLocation());
   }
 
   return (
@@ -117,7 +121,10 @@ export default function LoginPage() {
             </form>
             <p className="mt-4 text-center text-sm text-gray-500">
               アカウントがない方は{' '}
-              <Link href="/auth/register" className="text-indigo-400 hover:underline">
+              <Link
+                href={withNext('/auth/register', next)}
+                className="text-indigo-400 hover:underline"
+              >
                 新規登録
               </Link>
             </p>

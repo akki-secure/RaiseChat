@@ -14,7 +14,6 @@ function timeAgo(iso: string): string {
 
 const typeStyle: Record<AppNotification['type'], { label: string; bg: string; color: string }> = {
   new:    { label: '新着', bg: '#1d4ed8', color: '#fff' },
-  urgent: { label: '緊急', bg: '#dc2626', color: '#fff' },
 };
 
 export default function NotificationBell() {
@@ -131,7 +130,7 @@ export default function NotificationBell() {
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <p style={{ fontSize: 14, fontWeight: 500, color: '#d1d5db', margin: 0 }}>通知はありません</p>
-                  <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>新着・緊急の通知がここに届きます</p>
+                  <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>新着通知がここに届きます</p>
                 </div>
               </div>
             ) : (

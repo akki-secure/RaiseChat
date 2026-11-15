@@ -11,6 +11,7 @@ import totpRouter from './features/totp/totpRouter.js';
 import passkeyRouter from './features/passkey/passkeyRouter.js';
 import mfaRouter from './features/mfa/mfaRouter.js';
 import { loginLimiter } from './features/mfa/loginLimiter.js';
+import moderationRouter from './features/moderation/moderationRouter.js';
 import workspacesRouter from './routes/workspaces.js';
 import channelsRouter from './routes/channels.js';
 import messagesRouter from './routes/messages.js';
@@ -54,6 +55,7 @@ app.use(requestLogger);
 // ── ルーティング ──
 app.use('/api/auth/login',                        loginLimiter);
 app.use('/api/auth',                              authLimiter, authRouter);
+app.use('/api/workspaces/:wid/members',           moderationRouter);
 app.use('/api/workspaces',                        workspacesRouter);
 app.use('/api/workspaces/:wid/channels',          channelsRouter);
 app.use('/api/channels/:cid/messages',            messagesRouter);

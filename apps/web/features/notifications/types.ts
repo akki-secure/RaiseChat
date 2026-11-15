@@ -1,4 +1,4 @@
-export type NotificationType = 'new' | 'urgent';
+export type NotificationType = 'new';
 
 export interface AppNotification {
   id: string;

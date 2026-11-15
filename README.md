@@ -47,13 +47,18 @@ workspaces
 
 workspace_members
   workspace_id (FK)  user_id (FK)  role(owner|member)  joined_at
+  removed_at  removed_reason  ※キックの論理削除。removed_at があるメンバーは再参加できない
+
+member_warnings
+  id (PK)  workspace_id (FK)  user_id (FK)  issued_by (FK→users)  reason  message_id (FK→messages)
+  created_at  revoked_at  ※警告の記録。物理削除せず、取り消しは revoked_at
 
 channels
   id (PK)  workspace_id (FK)  name  type(public|private)  created_by (FK→users)  created_at
   deleted_at  ※論理削除。削除時に name の末尾へ `~deleted~<id先頭8桁>` を足し、同名で作り直せるようにする
 
 channel_members
-  channel_id (FK)  user_id (FK)  joined_at  last_read_at
+  channel_id (FK)  user_id (FK)  joined_at  last_read_at  removed_at  ※キック時に設定。入り直しで NULL に戻る
 
 messages
   id (PK)  channel_id (FK)  user_id (FK)  content  parent_id (FK→messages)
@@ -132,7 +137,17 @@ recovery_codes
 | GET | `/:id/members` | メンバー一覧 |
 | GET | `/:id/members/:uid` | 特定メンバー情報 |
 | GET | `/:id/search?q=` | 全文検索 |
-| POST | `/:id/invite` | 招待コード再生成 |
+| POST | `/:id/invite` | 招待コード再生成（owner のみ） |
+
+### 警告・キック `/api/workspaces/:wid/members`（owner のみ）
+
+| Method | Path | 概要 |
+|---|---|---|
+| GET | `/removed` | キックされたメンバー一覧 |
+| POST | `/:uid/warn` | 警告する（理由必須。本人へ通知） |
+| GET | `/:uid/warnings` | 警告履歴と有効な警告回数 |
+| POST | `/:uid/kick` | キックする（理由必須。警告3回、または `severe: true` が条件） |
+| POST | `/:uid/unkick` | キックを解除する |
 
 ### チャンネル `/api/workspaces/:wid/channels`
 
@@ -180,11 +195,14 @@ recovery_codes
 | `channel:join` | client→server | チャンネルルーム参加 |
 | `channel:leave` | client→server | ルーム離脱 |
 | `message:new` | server→client | 新着メッセージ配信 |
+| `message:notify` | server→client | 新着通知（`user:<id>` ルーム宛て。開いていないチャンネルの発言も届く） |
 | `message:update` | server→client | 編集通知 |
 | `message:delete` | server→client | 削除通知 |
 | `presence:snapshot` | server→client | オンラインユーザー全量 |
 | `presence:online` | server→client | ユーザーオンライン |
 | `presence:offline` | server→client | ユーザーオフライン |
+| `member:warned` | server→client | 管理者から警告を受けた（本人のみ） |
+| `member:kicked` | server→client | ワークスペースからキックされた（本人のみ） |
 
 ---
 
@@ -375,10 +393,13 @@ pnpm secret:scan
 | ⚙️ **アカウント設定** | サイドバー歯車アイコンから開くモーダル。ユーザーID・パスワード・TOTP・秘密の質問を変更できる。<br>`apps/server/src/routes/auth.ts` · `apps/web/features/settings/` |
 | 🔑 **パスワードリセット** | 秘密の質問で本人確認しパスワードをリセット。ログイン画面の「パスワードをお忘れですか？」から遷移。<br>`apps/server/src/routes/auth.ts` · `apps/web/app/auth/reset-password/` |
 | 🛡️ **パスワード強度チェック** | 8文字以上・英字・数字・記号の必須バリデーション。NordPass 2024年版上位200弱パスワードをブロック。<br>`apps/server/src/utils/blockedPasswords.ts` · `apps/web/lib/passwordValidation.ts` |
-| 🔔 **受信ボックス・通知機能** | 画面右上のベルアイコン（通知ドロップダウン）と受信ボックスアイコン。新着・緊急の2種類・未読バッジ・Web Audio API 通知音。<br>`apps/web/features/notifications/` |
+| 🔔 **受信ボックス・通知機能** | 画面右上のベルアイコン（通知ドロップダウン）と受信ボックスアイコン。新着通知（他チャンネルの発言・DM・メンション・警告）・未読バッジ・Web Audio API 通知音。<br>`apps/web/features/notifications/` |
 | 📎 **ファイル・画像添付** | チャンネルで画像（10MBまで）・動画（100MBまで）を最大5件添付して投稿。入力欄の「＋」メニューから「ファイルをアップロード」を選択。アップロード後にプレビュー表示。<br>`apps/web/features/fileUpload/` · `apps/server/src/routes/messages.ts` |
 | 👆 **パスキー（指紋認証）** | Touch ID などの生体認証による2段階認証。複数登録・論理削除に対応。<br>`apps/server/src/features/passkey/` · `apps/web/features/passkey/` |
 | 🛡️ **2段階認証の強化** | 認証アプリとパスキーの「両方必須」切替、失敗5回で15分ロック、リカバリーコード。<br>`apps/server/src/features/mfa/` · `apps/web/features/mfa/` |
+| 🔗 **招待リンク・コード管理** | owner がサイドバーの「管理」から招待リンク・コードをコピー／再生成。未ログインでリンクを開いてもログイン後に参加ページへ戻る。<br>`apps/web/features/invite/` · `apps/web/app/invite/[code]/` · `apps/web/lib/safeNext.ts` |
+| 📺 **チャンネル作成・参加** | サイドバーの「+」から公開／非公開チャンネルを作成。未参加の公開チャンネルは「参加する」ボタンで入れる（キック解除後の入り直しにも使う）。<br>`apps/web/features/channels/` |
+| 🚨 **警告とキック** | owner が警告を記録し、3回で（または重大違反の場合は警告なしで）手動でキックできる。再参加はブロックされ、owner が解除できる。<br>`apps/server/src/features/moderation/` · `apps/web/features/moderation/` |
 
 ### 🔐 TOTP 2段階認証の詳細
 
@@ -464,6 +485,47 @@ apps/web/features/
   mfa/MfaStep.tsx                     # ログイン時の認証手段の選択・「両方必須」の進行
   mfa/RecoveryCodeStep.tsx            # ログイン時のリカバリーコード入力
   mfa/MfaSettings.tsx                 # 設定: 認証モード切替・リカバリーコード発行
+```
+
+### 🚨 警告とキックの詳細
+
+> [!NOTE]
+> 警告・キックは**すべて owner の手動操作**です。メッセージ内容の自動判定や自動キックはありません。
+> 発言を制限する「ミュート」は実装していません（Slack と同様、最終手段はキックです）。
+
+**運用ルール**
+
+| 状況 | できること |
+|---|---|
+| 警告 1〜2回目 | 本人に通知（理由つき）。2回目は次がキック対象になることを伝える |
+| 警告 3回目 | キックできるようになる（自動ではキックされない）。回数は `KICK_WARNING_THRESHOLD` で変更可 |
+| 人格否定などの重大違反 | 「重大違反」にチェックし理由を記録すれば、警告なしでキックできる |
+| キック後 | 招待コードを入力しても再参加できない。owner が「キック解除」したときだけ再参加できる |
+
+- キックはメンバーの論理削除です。過去のメッセージは残ります。
+- 解除後、チャンネルへは入り直しです（キック前の所属は自動では戻りません）。
+- 警告の取り消し（`revoked_at`）は DB には用意していますが、画面からの操作は未実装です。
+
+> [!WARNING]
+> `008_moderation.sql` は既存の DB には自動で適用されません。`raisechat_admin` で手動実行してください。
+> 適用前にサーバーを動かすと、`removed_at` が無いため各 API がエラーになります。
+
+**関連ファイル**
+
+```
+apps/server/src/
+  db/migrations/008_moderation.sql    # member_warnings、workspace_members / channel_members の removed_at
+  features/moderation/
+    moderationService.ts              # 警告回数の集計、キック条件（KICK_WARNING_THRESHOLD = 3）
+    moderationRouter.ts               # /api/workspaces/:wid/members の warn・kick・unkick など
+
+apps/web/
+  features/invite/InvitePanel.tsx             # 招待リンク・コードの表示、コピー、再生成
+  features/moderation/AdminModal.tsx          # 「管理」モーダル（招待／メンバー管理）
+  features/moderation/MemberModerationPanel.tsx  # 警告・キック・キック解除
+  features/moderation/useModerationEvents.ts  # member:warned / member:kicked の受信
+  app/invite/[code]/page.tsx                  # 招待リンクから参加
+  lib/safeNext.ts                             # ログイン後の戻り先（招待ページのみ許可）
 ```
 
 ## ライセンス

@@ -29,7 +29,8 @@ async function assertChannelMember(channelId: string, userId: string): Promise<b
   const result = await pool.query(
     `SELECT 1 FROM channel_members cm
      JOIN channels c ON c.id = cm.channel_id
-     WHERE cm.channel_id = $1 AND cm.user_id = $2 AND c.deleted_at IS NULL`,
+     WHERE cm.channel_id = $1 AND cm.user_id = $2 AND c.deleted_at IS NULL
+       AND cm.removed_at IS NULL`,
     [channelId, userId]
   );
   return result.rows.length > 0;
@@ -82,7 +83,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
 
     // last_read_at を更新
     await pool.query(
-      'UPDATE channel_members SET last_read_at = NOW() WHERE channel_id = $1 AND user_id = $2',
+      'UPDATE channel_members SET last_read_at = NOW() WHERE channel_id = $1 AND user_id = $2 AND removed_at IS NULL',
       [cid, userId]
     );
 
@@ -145,7 +146,26 @@ router.post('/', messageLimiter, async (req: AuthRequest, res: Response, next: N
     const message = { ...row, ...userResult.rows[0], attachments };
 
     try {
-      getIo().to(`channel:${cid}`).emit('message:new', message);
+      const io = getIo();
+      io.to(`channel:${cid}`).emit('message:new', message);
+
+      // 開いていないチャンネルにも届くよう、送信者以外の現メンバー宛てに通知を送る
+      const { rows: targets } = await pool.query(
+        `SELECT cm.user_id, c.name AS channel_name, c.workspace_id
+         FROM channel_members cm
+         JOIN channels c ON c.id = cm.channel_id
+         WHERE cm.channel_id = $1 AND cm.removed_at IS NULL AND cm.user_id <> $2`,
+        [cid, userId]
+      );
+      for (const t of targets) {
+        io.to(`user:${t.user_id}`).emit('message:notify', {
+          workspace_id: t.workspace_id,
+          channel_id: cid,
+          channel_name: t.channel_name,
+          sender_id: userId,
+          content: message.content,
+        });
+      }
     } catch {
       // Socket.io 未初期化時は無視（テスト環境など）
     }
@@ -253,6 +273,7 @@ router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunctio
        FROM messages m
        JOIN channels c ON c.id = m.channel_id
        JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = $2
+                                AND wm.removed_at IS NULL
        WHERE m.id = $1 AND m.deleted_at IS NULL AND c.deleted_at IS NULL`,
       [mid, userId]
     );

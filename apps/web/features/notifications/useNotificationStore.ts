@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppNotification, NotificationType } from './types';
+import { AppNotification } from './types';
 import { playNotificationSound } from './notificationSound';
 
 interface NotificationState {
@@ -23,7 +23,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       createdAt: new Date().toISOString(),
     };
     set((s) => ({ notifications: [notification, ...s.notifications] }));
-    playNotificationSound(n.type as NotificationType);
+    playNotificationSound();
   },
 
   markRead: (id) =>

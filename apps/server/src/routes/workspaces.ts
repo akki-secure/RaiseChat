@@ -13,7 +13,7 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
       `SELECT w.id, w.name, w.owner_id, w.invite_code, w.created_at, wm.role
        FROM workspaces w
        JOIN workspace_members wm ON wm.workspace_id = w.id
-       WHERE wm.user_id = $1
+       WHERE wm.user_id = $1 AND wm.removed_at IS NULL
        ORDER BY w.created_at ASC`,
       [req.user!.userId]
     );
@@ -63,37 +63,12 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
   }
 });
 
-// GET /api/workspaces/:id/join?code=xxx — 招待コードで参加
-router.get('/:id/join', async (req: AuthRequest, res: Response, next: NextFunction) => {
-  try {
-    const { code } = z.object({ code: z.string().min(1) }).parse(req.query);
-    const userId = req.user!.userId;
-
-    const wsResult = await pool.query(
-      'SELECT id FROM workspaces WHERE id = $1 AND invite_code = $2',
-      [req.params.id, code]
-    );
-    if (wsResult.rows.length === 0) {
-      res.status(404).json({ error: '招待コードが無効です' });
-      return;
-    }
-
-    await pool.query(
-      "INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'member') ON CONFLICT DO NOTHING",
-      [req.params.id, userId]
-    );
-    res.json({ message: 'ワークスペースに参加しました' });
-  } catch (err) {
-    next(err);
-  }
-});
-
 // POST /api/workspaces/:id/invite — 招待コード再生成 (owner only)
 router.post('/:id/invite', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const userId = req.user!.userId;
     const member = await pool.query(
-      "SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
+      "SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL",
       [req.params.id, userId]
     );
     if (member.rows[0]?.role !== 'owner') {
@@ -117,7 +92,7 @@ router.get('/:id/members', async (req: AuthRequest, res: Response, next: NextFun
     const userId = req.user!.userId;
 
     const isMember = await pool.query(
-      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL',
       [req.params.id, userId]
     );
     if (isMember.rows.length === 0) {
@@ -129,7 +104,7 @@ router.get('/:id/members', async (req: AuthRequest, res: Response, next: NextFun
       `SELECT u.id, u.username, u.display_name, u.avatar_url, u.status, wm.role
        FROM workspace_members wm
        JOIN users u ON u.id = wm.user_id
-       WHERE wm.workspace_id = $1
+       WHERE wm.workspace_id = $1 AND wm.removed_at IS NULL
        ORDER BY u.username ASC`,
       [req.params.id]
     );
@@ -145,7 +120,7 @@ router.get('/:id/members/:uid', async (req: AuthRequest, res: Response, next: Ne
     const userId = req.user!.userId;
 
     const isMember = await pool.query(
-      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL',
       [req.params.id, userId]
     );
     if (isMember.rows.length === 0) {
@@ -157,7 +132,7 @@ router.get('/:id/members/:uid', async (req: AuthRequest, res: Response, next: Ne
       `SELECT u.id, u.username, u.display_name, u.avatar_url, u.status
        FROM users u
        JOIN workspace_members wm ON wm.user_id = u.id
-       WHERE wm.workspace_id = $1 AND u.id = $2`,
+       WHERE wm.workspace_id = $1 AND u.id = $2 AND wm.removed_at IS NULL`,
       [req.params.id, req.params.uid]
     );
     if (result.rows.length === 0) {
@@ -177,7 +152,7 @@ router.get('/:id/search', async (req: AuthRequest, res: Response, next: NextFunc
     const { q } = z.object({ q: z.string().min(1).max(200) }).parse(req.query);
 
     const isMember = await pool.query(
-      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL',
       [req.params.id, userId]
     );
     if (isMember.rows.length === 0) {
@@ -227,6 +202,17 @@ router.post('/join', async (req: AuthRequest, res: Response, next: NextFunction)
     }
 
     const ws = wsResult.rows[0];
+
+    // キックされたユーザーは、オーナーが解除するまで再参加できない
+    const removed = await pool.query(
+      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NOT NULL',
+      [ws.id, userId]
+    );
+    if (removed.rows.length > 0) {
+      res.status(403).json({ error: 'このワークスペースへの参加は制限されています' });
+      return;
+    }
+
     await pool.query(
       "INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ($1, $2, 'member') ON CONFLICT DO NOTHING",
       [ws.id, userId]

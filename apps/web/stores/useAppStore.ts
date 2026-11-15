@@ -27,6 +27,8 @@ export interface Channel {
   name: string;
   type: 'public' | 'private';
   created_by: string;
+  /** 参加日時。未参加の公開チャンネルは null */
+  joined_at?: string | null;
 }
 
 interface Attachment {

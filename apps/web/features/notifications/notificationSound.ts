@@ -1,5 +1,3 @@
-import { NotificationType } from './types';
-
 let ctx: AudioContext | null = null;
 
 function getCtx(): AudioContext {
@@ -26,33 +24,11 @@ function playNewSound(ac: AudioContext) {
   });
 }
 
-/** 緊急通知音: 短い3連打アラート */
-function playUrgentSound(ac: AudioContext) {
-  [0, 0.2, 0.4].forEach((offset) => {
-    const osc = ac.createOscillator();
-    const gain = ac.createGain();
-    osc.connect(gain);
-    gain.connect(ac.destination);
-    osc.type = 'square';
-    osc.frequency.value = 1400;
-    const start = ac.currentTime + offset;
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.15, start + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.001, start + 0.12);
-    osc.start(start);
-    osc.stop(start + 0.12);
-  });
-}
-
-export function playNotificationSound(type: NotificationType) {
+export function playNotificationSound() {
   try {
     const ac = getCtx();
     if (ac.state === 'suspended') ac.resume();
-    if (type === 'urgent') {
-      playUrgentSound(ac);
-    } else {
-      playNewSound(ac);
-    }
+    playNewSound(ac);
   } catch {
     // ブラウザのAutoplay Policyで再生できない場合は無視
   }
