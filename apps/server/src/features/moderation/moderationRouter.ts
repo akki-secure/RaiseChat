@@ -85,6 +85,19 @@ router.post('/:uid/warn', async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
+    // 別のワークスペースのメッセージを指定されていないか確認する
+    if (message_id) {
+      const m = await pool.query(
+        `SELECT 1 FROM messages m JOIN channels c ON c.id = m.channel_id
+         WHERE m.id = $1 AND c.workspace_id = $2`,
+        [message_id, wid]
+      );
+      if (!m.rows[0]) {
+        res.status(400).json({ error: '対象のメッセージが見つかりません' });
+        return;
+      }
+    }
+
     await pool.query(
       `INSERT INTO member_warnings (workspace_id, user_id, issued_by, reason, message_id)
        VALUES ($1, $2, $3, $4, $5)`,
@@ -150,38 +163,62 @@ router.post('/:uid/kick', async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    const warningCount = await countActiveWarnings(wid, uid);
-    if (!canKick(warningCount, severe)) {
-      res.status(400).json({
-        error: `警告が${KICK_WARNING_THRESHOLD}回に達していません（現在${warningCount}回）。重大違反の場合は重大違反として指定してください`,
-      });
-      return;
-    }
-
     const client = await pool.connect();
     let channelIds: string[] = [];
+    let warningCount = 0;
+    let rejected: { status: number; error: string } | null = null;
     try {
       await client.query('BEGIN');
-      await client.query(
-        `UPDATE workspace_members SET removed_at = NOW(), removed_reason = $3
-         WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-        [wid, uid, reason]
-      );
-      const left = await client.query(
-        `UPDATE channel_members cm SET removed_at = NOW()
-         FROM channels c
-         WHERE cm.channel_id = c.id AND c.workspace_id = $1
-           AND cm.user_id = $2 AND cm.removed_at IS NULL
-         RETURNING cm.channel_id`,
+      // 対象の行をロックする。同時にキックが押されても、あとの処理はここで待たされる
+      const locked = await client.query(
+        `SELECT removed_at FROM workspace_members
+         WHERE workspace_id = $1 AND user_id = $2 FOR UPDATE`,
         [wid, uid]
       );
-      channelIds = left.rows.map((r: { channel_id: string }) => r.channel_id);
-      await client.query('COMMIT');
+      if (!locked.rows[0] || locked.rows[0].removed_at) {
+        rejected = { status: 409, error: 'すでにキックされています' };
+      } else {
+        const counted = await client.query(
+          `SELECT COUNT(*)::int AS n FROM member_warnings
+           WHERE workspace_id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+          [wid, uid]
+        );
+        warningCount = counted.rows[0].n;
+        if (!canKick(warningCount, severe)) {
+          rejected = {
+            status: 400,
+            error: `警告が${KICK_WARNING_THRESHOLD}回に達していません（現在${warningCount}回）。重大違反の場合は重大違反として指定してください`,
+          };
+        }
+      }
+      if (rejected) {
+        await client.query('ROLLBACK');
+      } else {
+        await client.query(
+          `UPDATE workspace_members SET removed_at = NOW(), removed_reason = $3
+           WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL`,
+          [wid, uid, reason]
+        );
+        const left = await client.query(
+          `UPDATE channel_members cm SET removed_at = NOW()
+           FROM channels c
+           WHERE cm.channel_id = c.id AND c.workspace_id = $1
+             AND cm.user_id = $2 AND cm.removed_at IS NULL
+           RETURNING cm.channel_id`,
+          [wid, uid]
+        );
+        channelIds = left.rows.map((r: { channel_id: string }) => r.channel_id);
+        await client.query('COMMIT');
+      }
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
     } finally {
       client.release();
+    }
+    if (rejected) {
+      res.status(rejected.status).json({ error: rejected.error });
+      return;
     }
 
     logger.info('moderation.kick', {
