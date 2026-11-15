@@ -149,7 +149,8 @@ router.post('/', messageLimiter, async (req: AuthRequest, res: Response, next: N
       const io = getIo();
       io.to(`channel:${cid}`).emit('message:new', message);
 
-      // 開いていないチャンネルにも届くよう、送信者以外の現メンバー宛てに通知を送る
+      // 開いていないチャンネルにも届くよう、送信者以外の現メンバー宛てに通知を送る。
+      // 本文を含むため、送り先は必ず「現メンバー（removed_at IS NULL）」に限ること
       const { rows: targets } = await pool.query(
         `SELECT cm.user_id, c.name AS channel_name, c.workspace_id
          FROM channel_members cm

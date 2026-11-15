@@ -41,6 +41,9 @@ const state = {
   target: { role: 'member', removed_at: null } as { role: string; removed_at: string | null } | null,
   warnings: 0,
   unkickRows: 1,
+  lockedRemoved: null as string | null,
+  lockedMissing: false,
+  messageInWorkspace: true,
 };
 
 beforeAll(() => {
@@ -54,6 +57,14 @@ beforeAll(() => {
   });
 });
 
+// キックのトランザクション内で使う DB（ロック取得と警告数の集計を含む）
+const clientImpl = async (sql: string) => {
+  if (sql.includes('FOR UPDATE')) return { rows: state.lockedMissing ? [] : [{ removed_at: state.lockedRemoved }] };
+  if (sql.includes('COUNT(*)')) return { rows: [{ n: state.warnings }] };
+  if (sql.includes('RETURNING cm.channel_id')) return { rows: [{ channel_id: CID }] };
+  return { rows: [], rowCount: 1 };
+};
+
 beforeEach(() => {
   query.mockReset();
   clientQuery.mockReset();
@@ -65,6 +76,9 @@ beforeEach(() => {
     target: { role: 'member', removed_at: null },
     warnings: 0,
     unkickRows: 1,
+    lockedRemoved: null,
+    lockedMissing: false,
+    messageInWorkspace: true,
   });
   query.mockImplementation(async (sql: string) => {
     if (sql.includes('SELECT role FROM workspace_members')) {
@@ -74,14 +88,12 @@ beforeEach(() => {
       return { rows: state.target ? [state.target] : [] };
     }
     if (sql.includes('COUNT(*)')) return { rows: [{ n: state.warnings }] };
+    if (sql.includes('FROM messages m')) return { rows: state.messageInWorkspace ? [{ '?column?': 1 }] : [] };
     if (sql.includes('FROM member_warnings')) return { rows: [] };
     if (sql.includes('removed_at = NULL')) return { rows: [], rowCount: state.unkickRows };
     return { rows: [], rowCount: 1 };
   });
-  clientQuery.mockImplementation(async (sql: string) => {
-    if (sql.includes('RETURNING cm.channel_id')) return { rows: [{ channel_id: CID }] };
-    return { rows: [], rowCount: 1 };
-  });
+  clientQuery.mockImplementation(clientImpl);
 });
 
 const sqls = () => query.mock.calls.map((c) => String(c[0]));
@@ -139,6 +151,18 @@ describe('POST /:uid/warn', () => {
     state.target = null;
     expect((await warn()).status).toBe(404);
   });
+  it('指定した message_id が別のワークスペースのものなら 400。何も書き込まない', async () => {
+    state.messageInWorkspace = false;
+    const res = await warn({ reason: '人格否定の発言', message_id: '44444444-4444-4444-8444-444444444444' });
+    expect(res.status).toBe(400);
+    expect(sqls().some((s) => s.includes('INSERT INTO'))).toBe(false);
+    expect(emit).not.toHaveBeenCalled();
+  });
+  it('message_id が同じワークスペースのものなら警告できる', async () => {
+    const res = await warn({ reason: '人格否定の発言', message_id: '44444444-4444-4444-8444-444444444444' });
+    expect(res.status).toBe(201);
+    expect(sqls().some((s) => s.includes('INSERT INTO member_warnings'))).toBe(true);
+  });
 });
 
 describe('POST /:uid/kick', () => {
@@ -149,8 +173,49 @@ describe('POST /:uid/kick', () => {
     state.warnings = KICK_WARNING_THRESHOLD - 1;
     const res = await kick();
     expect(res.status).toBe(400);
-    expect(clientQuery).not.toHaveBeenCalled();
+    expect(clientSqls().some((s) => /UPDATE (workspace|channel)_members/.test(s))).toBe(false);
+    expect(clientSqls()).toContain('ROLLBACK');
     expect(emit).not.toHaveBeenCalled();
+  });
+  it('同時に押されて、ロック取得時にすでにキック済みなら 409。通知もログも出さない', async () => {
+    state.warnings = KICK_WARNING_THRESHOLD;
+    state.lockedRemoved = '2026-11-15T00:00:00Z';
+    const res = await kick();
+    expect(res.status).toBe(409);
+    expect(clientSqls().some((s) => /UPDATE (workspace|channel)_members/.test(s))).toBe(false);
+    expect(clientSqls()).toContain('ROLLBACK');
+    expect(emit).not.toHaveBeenCalled();
+    expect(logInfo).not.toHaveBeenCalled();
+  });
+  it('ロック時に行がなければ 404。何も更新しない', async () => {
+    state.warnings = KICK_WARNING_THRESHOLD;
+    state.lockedMissing = true;
+    expect((await kick()).status).toBe(404);
+    expect(clientSqls().some((s) => /UPDATE (workspace|channel)_members/.test(s))).toBe(false);
+    expect(emit).not.toHaveBeenCalled();
+  });
+  it('ROLLBACK に失敗しても、元のエラーを返す（500）', async () => {
+    state.warnings = KICK_WARNING_THRESHOLD;
+    clientQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('UPDATE channel_members')) throw new Error('db error');
+      if (sql === 'ROLLBACK') throw new Error('rollback error');
+      return clientImpl(sql);
+    });
+    const res = await kick();
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('db error');
+  });
+  it('警告数の判定は、行をロックしたトランザクションの中で行う', async () => {
+    state.warnings = KICK_WARNING_THRESHOLD;
+    await kick();
+    const all = clientSqls();
+    const lock = all.findIndex((s) => s.includes('FOR UPDATE'));
+    const count = all.findIndex((s) => s.includes('COUNT(*)'));
+    const update = all.findIndex((s) => s.includes('UPDATE workspace_members'));
+    expect(all[0]).toBe('BEGIN');
+    expect(lock).toBeGreaterThan(0);
+    expect(count).toBeGreaterThan(lock);
+    expect(update).toBeGreaterThan(count);
   });
   it('警告が閾値に達していればキックできる（論理削除・物理削除なし）', async () => {
     state.warnings = KICK_WARNING_THRESHOLD;
@@ -195,7 +260,7 @@ describe('POST /:uid/kick', () => {
     state.warnings = KICK_WARNING_THRESHOLD;
     clientQuery.mockImplementation(async (sql: string) => {
       if (sql.includes('UPDATE channel_members')) throw new Error('db error');
-      return { rows: [], rowCount: 1 };
+      return clientImpl(sql);
     });
     expect((await kick()).status).toBe(500);
     expect(clientSqls()).toContain('ROLLBACK');

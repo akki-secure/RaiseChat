@@ -40,6 +40,16 @@ describe('channel:join', () => {
     expect(query.mock.calls[0][1]).toEqual([CID, 'u1']);
   });
 
+  it('キックされた人（channel_members.removed_at あり）は参加できない条件で確認する', async () => {
+    query.mockResolvedValue({ rows: [] });
+    const { socket, handlers } = makeSocket();
+
+    await handlers['channel:join'](CID);
+
+    expect(String(query.mock.calls[0][0])).toContain('cm.removed_at IS NULL');
+    expect(socket.join).not.toHaveBeenCalled();
+  });
+
   it('メンバーでなければ参加できない', async () => {
     query.mockResolvedValue({ rows: [] });
     const { socket, handlers } = makeSocket();
