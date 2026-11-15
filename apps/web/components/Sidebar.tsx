@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { disconnectSocket } from '@/lib/socket';
 import { useAppStore, Channel, Workspace, User } from '@/stores/useAppStore';
 import SettingsModal from '@/features/settings/SettingsModal';
+import AdminModal from '@/features/moderation/AdminModal';
+import CreateChannelModal from '@/features/channels/CreateChannelModal';
 
 export default function Sidebar() {
   const params = useParams<{ workspaceId: string }>();
@@ -24,7 +26,10 @@ export default function Sidebar() {
     onlineUserIds,
   } = useAppStore();
   const [showSettings, setShowSettings] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [showCreateChannel, setShowCreateChannel] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const isOwner = workspaces.find((w) => w.id === activeWorkspaceId)?.role === 'owner';
 
   useEffect(() => {
     if (!workspaces.length) {
@@ -75,6 +80,15 @@ export default function Sidebar() {
             </option>
           ))}
         </select>
+        {isOwner && (
+          <button
+            onClick={() => setShowAdmin(true)}
+            className="text-gray-400 hover:text-white text-xs border border-gray-700 rounded px-1.5 py-0.5"
+            title="招待とメンバーの管理"
+          >
+            管理
+          </button>
+        )}
         <Link
           href="/workspace/new"
           className="text-gray-400 hover:text-white text-lg leading-none"
@@ -95,9 +109,19 @@ export default function Sidebar() {
           <span>検索</span>
         </Link>
 
-        <p className="px-4 py-1 text-xs font-semibold text-gray-500 uppercase tracking-widest">
-          チャンネル
-        </p>
+        <div className="flex items-center justify-between pr-3">
+          <p className="px-4 py-1 text-xs font-semibold text-gray-500 uppercase tracking-widest">
+            チャンネル
+          </p>
+          <button
+            onClick={() => setShowCreateChannel(true)}
+            className="text-gray-500 hover:text-white text-base leading-none"
+            title="チャンネルを作成"
+            aria-label="チャンネルを作成"
+          >
+            +
+          </button>
+        </div>
         {channels.map((ch) => (
           <Link
             key={ch.id}
@@ -177,6 +201,21 @@ export default function Sidebar() {
       )}
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      {showAdmin && me && activeWorkspaceId && (
+        <AdminModal workspaceId={activeWorkspaceId} meId={me.id} onClose={() => setShowAdmin(false)} />
+      )}
+      {showCreateChannel && activeWorkspaceId && (
+        <CreateChannelModal
+          workspaceId={activeWorkspaceId}
+          onClose={() => setShowCreateChannel(false)}
+          onCreated={async (channel) => {
+            const { channels: ch } = await api.get<{ channels: Channel[] }>(`/workspaces/${activeWorkspaceId}/channels`);
+            setChannels(ch);
+            setShowCreateChannel(false);
+            router.push(`/workspace/${activeWorkspaceId}/channel/${channel.id}`);
+          }}
+        />
+      )}
     </aside>
   );
 }

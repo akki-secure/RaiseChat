@@ -2,21 +2,13 @@
 
 import { useState } from 'react';
 import { useNotificationStore } from './useNotificationStore';
-import { AppNotification } from './types';
 
-type Tab = 'all' | 'new' | 'urgent' | 'unread';
+type Tab = 'all' | 'unread';
 
 const tabs: { key: Tab; label: string }[] = [
   { key: 'all', label: 'すべて' },
-  { key: 'new', label: '新着' },
-  { key: 'urgent', label: '緊急' },
   { key: 'unread', label: '未読' },
 ];
-
-const typeMeta: Record<AppNotification['type'], { label: string; bg: string; text: string }> = {
-  new: { label: '新着', bg: 'bg-blue-500/20', text: 'text-blue-400' },
-  urgent: { label: '緊急', bg: 'bg-red-500/20', text: 'text-red-400' },
-};
 
 function timeAgo(iso: string): string {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -43,8 +35,7 @@ export default function InboxModal({ onClose }: Props) {
 
   const filtered = notifications.filter((n) => {
     if (tab === 'all') return true;
-    if (tab === 'unread') return !n.read;
-    return n.type === tab;
+    return !n.read;
   });
 
   return (
@@ -129,9 +120,7 @@ export default function InboxModal({ onClose }: Props) {
             const cnt =
               t.key === 'all'
                 ? notifications.length
-                : t.key === 'unread'
-                ? notifications.filter((n) => !n.read).length
-                : notifications.filter((n) => n.type === t.key).length;
+                : notifications.filter((n) => !n.read).length;
             return (
               <button
                 key={t.key}
@@ -182,7 +171,6 @@ export default function InboxModal({ onClose }: Props) {
           ) : (
             <div className="flex flex-col gap-2">
               {filtered.map((n) => {
-                const meta = typeMeta[n.type];
                 return (
                   <div
                     key={n.id}
@@ -200,26 +188,11 @@ export default function InboxModal({ onClose }: Props) {
                     }}
                   >
                     {/* 種別アイコン */}
-                    <div className={`flex-shrink-0 rounded-lg p-2 ${meta.bg}`}>
-                      {n.type === 'urgent' ? (
+                    <div className={`flex-shrink-0 rounded-lg p-2 bg-blue-500/20`}>
+                      {(
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className={`w-4 h-4 ${meta.text}`}
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                          />
-                        </svg>
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className={`w-4 h-4 ${meta.text}`}
+                          className={`w-4 h-4 text-blue-400`}
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -236,9 +209,7 @@ export default function InboxModal({ onClose }: Props) {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5">
-                        <span className={`text-[10px] font-bold ${meta.text}`}>
-                          {meta.label}
-                        </span>
+                        <span className="text-[10px] font-bold text-blue-400">新着</span>
                         {!n.read && (
                           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />
                         )}

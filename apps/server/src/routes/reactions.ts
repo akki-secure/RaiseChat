@@ -11,7 +11,7 @@ async function canAccessMessage(mid: string, userId: string): Promise<boolean> {
   const result = await pool.query(
     `SELECT 1 FROM messages m
      JOIN channels c ON c.id = m.channel_id
-     JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = $2
+     JOIN channel_members cm ON cm.channel_id = m.channel_id AND cm.user_id = $2 AND cm.removed_at IS NULL
      WHERE m.id = $1 AND m.deleted_at IS NULL AND c.deleted_at IS NULL`,
     [mid, userId]
   );

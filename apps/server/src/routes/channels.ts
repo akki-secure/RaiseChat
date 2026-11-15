@@ -19,8 +19,10 @@ router.get('/', async (req: AuthRequest, res: Response, next: NextFunction) => {
                WHERE m.channel_id = c.id AND m.deleted_at IS NULL
                AND m.parent_id IS NULL AND m.created_at > cm.last_read_at) AS unread_count
        FROM channels c
-       LEFT JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = $2
+       LEFT JOIN channel_members cm ON cm.channel_id = c.id AND cm.user_id = $2 AND cm.removed_at IS NULL
        WHERE c.workspace_id = $1
+         AND EXISTS (SELECT 1 FROM workspace_members wm
+                     WHERE wm.workspace_id = $1 AND wm.user_id = $2 AND wm.removed_at IS NULL)
          AND c.deleted_at IS NULL
          AND (c.type = 'public' OR cm.user_id IS NOT NULL)
        ORDER BY c.created_at ASC`,
@@ -43,7 +45,7 @@ router.post('/', async (req: AuthRequest, res: Response, next: NextFunction) => 
     const { wid } = req.params;
 
     const member = await pool.query(
-      'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      'SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL',
       [wid, userId]
     );
     if (!member.rows[0]) {
@@ -83,7 +85,7 @@ router.delete('/:cid', async (req: AuthRequest, res: Response, next: NextFunctio
     const userId = req.user!.userId;
 
     const member = await pool.query(
-      "SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2",
+      "SELECT role FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL",
       [wid, userId]
     );
     if (member.rows[0]?.role !== 'owner') {
@@ -137,8 +139,20 @@ router.post('/:cid/join', async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
+    // ワークスペースから外されている人は参加できない
+    const wsMember = await pool.query(
+      'SELECT 1 FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL',
+      [wid, userId]
+    );
+    if (!wsMember.rows[0]) {
+      res.status(403).json({ error: 'ワークスペースのメンバーではありません' });
+      return;
+    }
+
+    // キック時に removed_at が入った行は、入り直しで NULL に戻す
     await pool.query(
-      'INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      `INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2)
+       ON CONFLICT (channel_id, user_id) DO UPDATE SET removed_at = NULL`,
       [cid, userId]
     );
     res.json({ message: 'チャンネルに参加しました' });
@@ -157,7 +171,8 @@ router.post('/:cid/invite', async (req: AuthRequest, res: Response, next: NextFu
     const requesterMember = await pool.query(
       `SELECT cm.user_id FROM channel_members cm
        JOIN channels c ON c.id = cm.channel_id
-       WHERE cm.channel_id = $1 AND cm.user_id = $2 AND c.workspace_id = $3 AND c.deleted_at IS NULL`,
+       WHERE cm.channel_id = $1 AND cm.user_id = $2 AND c.workspace_id = $3 AND c.deleted_at IS NULL
+         AND cm.removed_at IS NULL`,
       [cid, requesterId, wid]
     );
     if (!requesterMember.rows[0]) {
@@ -166,7 +181,7 @@ router.post('/:cid/invite', async (req: AuthRequest, res: Response, next: NextFu
     }
 
     const wsMember = await pool.query(
-      'SELECT user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2',
+      'SELECT user_id FROM workspace_members WHERE workspace_id = $1 AND user_id = $2 AND removed_at IS NULL',
       [wid, user_id]
     );
     if (!wsMember.rows[0]) {
@@ -175,7 +190,8 @@ router.post('/:cid/invite', async (req: AuthRequest, res: Response, next: NextFu
     }
 
     await pool.query(
-      'INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      `INSERT INTO channel_members (channel_id, user_id) VALUES ($1, $2)
+       ON CONFLICT (channel_id, user_id) DO UPDATE SET removed_at = NULL`,
       [cid, user_id]
     );
     res.json({ message: 'チャンネルに招待しました' });

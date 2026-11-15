@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { useAppStore, User } from '@/stores/useAppStore';
 import { validatePassword } from '@/lib/passwordValidation';
+import { nextFromLocation, withNext } from '@/lib/safeNext';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,6 +18,9 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // 招待リンクから来た場合の戻り先。描画の食い違いを避けるため、マウント後に読む
+  const [next, setNext] = useState('/');
+  useEffect(() => { setNext(nextFromLocation()); }, []);
 
   function handlePasswordChange(value: string) {
     setPassword(value);
@@ -39,7 +43,7 @@ export default function RegisterPage() {
         password,
       });
       setMe(user);
-      router.replace('/');
+      router.replace(nextFromLocation());
     } catch (err) {
       setError(err instanceof Error ? err.message : '登録に失敗しました');
     } finally {
@@ -114,7 +118,10 @@ export default function RegisterPage() {
         </form>
         <p className="mt-4 text-center text-sm text-gray-500">
           すでにアカウントをお持ちの方は{' '}
-          <Link href="/auth/login" className="text-indigo-400 hover:underline">
+          <Link
+            href={withNext('/auth/login', next)}
+            className="text-indigo-400 hover:underline"
+          >
             ログイン
           </Link>
         </p>
