@@ -190,8 +190,46 @@ recovery_codes
 
 ## 技術スタック
 
-| レイヤー | 技術 |
+全体は pnpm ワークスペースのモノレポで、言語は TypeScript。
+
+### フロントエンド（`apps/web`）
+
+| 分類 | 技術 |
 |---|---|
+| フレームワーク | Next.js 15 (App Router) + React 18 |
+| スタイリング | Tailwind CSS |
+| 状態管理 | Zustand |
+| リアルタイム通信 | socket.io-client |
+| パスキー | @simplewebauthn/browser |
+| Markdown 表示 | react-markdown + remark-gfm |
+| テスト | Vitest + Testing Library (jsdom) |
+
+### バックエンド（`apps/server`）
+
+| 分類 | 技術 |
+|---|---|
+| フレームワーク | Node.js + Express 4 |
+| リアルタイム通信 | Socket.IO 4 |
+| データベース | PostgreSQL 16（`pg` で直接接続、ORM なし） |
+| 認証 | JWT (httpOnly Cookie) + bcrypt |
+| 2段階認証 | otplib (TOTP) + qrcode / @simplewebauthn/server (パスキー) |
+| セキュリティ | helmet / cors / express-rate-limit |
+| バリデーション | zod |
+| ファイルストレージ | AWS S3 (@aws-sdk/client-s3) + multer |
+| ログ | winston |
+| テスト | Vitest + supertest |
+
+### 開発環境・CI
+
+| 分類 | 技術 |
+|---|---|
+| パッケージ管理 | pnpm 9 (workspace) |
+| ローカルDB | Docker Compose (postgres:16-alpine) |
+| 静的解析 | ESLint + TypeScript |
+| シークレット検出 | gitleaks |
+| PR レビュー | Claude Code による自動レビュー (GitHub Actions) |
+
+---|---|
 | フロントエンド | Next.js 14 (App Router) + TypeScript + Tailwind CSS |
 | 状態管理 | Zustand |
 | バックエンド | Node.js + Express + Socket.io |
