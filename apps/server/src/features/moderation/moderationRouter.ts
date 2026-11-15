@@ -175,7 +175,9 @@ router.post('/:uid/kick', async (req: AuthRequest, res: Response, next: NextFunc
          WHERE workspace_id = $1 AND user_id = $2 FOR UPDATE`,
         [wid, uid]
       );
-      if (!locked.rows[0] || locked.rows[0].removed_at) {
+      if (!locked.rows[0]) {
+        rejected = { status: 404, error: 'メンバーが見つかりません' };
+      } else if (locked.rows[0].removed_at) {
         rejected = { status: 409, error: 'すでにキックされています' };
       } else {
         const counted = await client.query(
@@ -211,7 +213,8 @@ router.post('/:uid/kick', async (req: AuthRequest, res: Response, next: NextFunc
         await client.query('COMMIT');
       }
     } catch (err) {
-      await client.query('ROLLBACK');
+      // ROLLBACK 自体が失敗しても、元のエラーを隠さない
+      await client.query('ROLLBACK').catch(() => undefined);
       throw err;
     } finally {
       client.release();

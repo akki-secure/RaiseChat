@@ -42,6 +42,7 @@ const state = {
   warnings: 0,
   unkickRows: 1,
   lockedRemoved: null as string | null,
+  lockedMissing: false,
   messageInWorkspace: true,
 };
 
@@ -58,7 +59,7 @@ beforeAll(() => {
 
 // キックのトランザクション内で使う DB（ロック取得と警告数の集計を含む）
 const clientImpl = async (sql: string) => {
-  if (sql.includes('FOR UPDATE')) return { rows: [{ removed_at: state.lockedRemoved }] };
+  if (sql.includes('FOR UPDATE')) return { rows: state.lockedMissing ? [] : [{ removed_at: state.lockedRemoved }] };
   if (sql.includes('COUNT(*)')) return { rows: [{ n: state.warnings }] };
   if (sql.includes('RETURNING cm.channel_id')) return { rows: [{ channel_id: CID }] };
   return { rows: [], rowCount: 1 };
@@ -76,6 +77,7 @@ beforeEach(() => {
     warnings: 0,
     unkickRows: 1,
     lockedRemoved: null,
+    lockedMissing: false,
     messageInWorkspace: true,
   });
   query.mockImplementation(async (sql: string) => {
@@ -184,6 +186,24 @@ describe('POST /:uid/kick', () => {
     expect(clientSqls()).toContain('ROLLBACK');
     expect(emit).not.toHaveBeenCalled();
     expect(logInfo).not.toHaveBeenCalled();
+  });
+  it('ロック時に行がなければ 404。何も更新しない', async () => {
+    state.warnings = KICK_WARNING_THRESHOLD;
+    state.lockedMissing = true;
+    expect((await kick()).status).toBe(404);
+    expect(clientSqls().some((s) => /UPDATE (workspace|channel)_members/.test(s))).toBe(false);
+    expect(emit).not.toHaveBeenCalled();
+  });
+  it('ROLLBACK に失敗しても、元のエラーを返す（500）', async () => {
+    state.warnings = KICK_WARNING_THRESHOLD;
+    clientQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('UPDATE channel_members')) throw new Error('db error');
+      if (sql === 'ROLLBACK') throw new Error('rollback error');
+      return clientImpl(sql);
+    });
+    const res = await kick();
+    expect(res.status).toBe(500);
+    expect(res.body.error).toBe('db error');
   });
   it('警告数の判定は、行をロックしたトランザクションの中で行う', async () => {
     state.warnings = KICK_WARNING_THRESHOLD;
