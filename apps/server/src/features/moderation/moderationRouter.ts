@@ -85,12 +85,12 @@ router.post('/:uid/warn', async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    // 警告の根拠は「対象本人の発言」で、同じワークスペースの、削除されていないチャンネルのものに限る
+    // 警告の根拠は「対象本人の発言」で、同じワークスペースの、削除されていないメッセージ・チャンネルのものに限る
     if (message_id) {
       const m = await pool.query(
         `SELECT 1 FROM messages m JOIN channels c ON c.id = m.channel_id
          WHERE m.id = $1 AND c.workspace_id = $2
-           AND m.user_id = $3 AND c.deleted_at IS NULL`,
+           AND m.user_id = $3 AND m.deleted_at IS NULL AND c.deleted_at IS NULL`,
         [message_id, wid, uid]
       );
       if (!m.rows[0]) {
