@@ -158,6 +158,14 @@ describe('POST /:uid/warn', () => {
     expect(sqls().some((s) => s.includes('INSERT INTO'))).toBe(false);
     expect(emit).not.toHaveBeenCalled();
   });
+  it('message_id の検証は「対象本人の発言」かつ「削除されていないチャンネル」に限る', async () => {
+    await warn({ reason: '人格否定の発言', message_id: '44444444-4444-4444-8444-444444444444' });
+    const call = query.mock.calls.find((c) => String(c[0]).includes('FROM messages m'));
+    expect(call).toBeDefined();
+    expect(String(call![0])).toContain('m.user_id = $3');
+    expect(String(call![0])).toContain('c.deleted_at IS NULL');
+    expect(call![1]).toEqual(['44444444-4444-4444-8444-444444444444', expect.any(String), UID]);
+  });
   it('message_id が同じワークスペースのものなら警告できる', async () => {
     const res = await warn({ reason: '人格否定の発言', message_id: '44444444-4444-4444-8444-444444444444' });
     expect(res.status).toBe(201);
