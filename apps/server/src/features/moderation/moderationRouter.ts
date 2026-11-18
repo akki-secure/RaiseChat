@@ -85,12 +85,13 @@ router.post('/:uid/warn', async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    // 別のワークスペースのメッセージを指定されていないか確認する
+    // 警告の根拠は「対象本人の発言」で、同じワークスペースの、削除されていないチャンネルのものに限る
     if (message_id) {
       const m = await pool.query(
         `SELECT 1 FROM messages m JOIN channels c ON c.id = m.channel_id
-         WHERE m.id = $1 AND c.workspace_id = $2`,
-        [message_id, wid]
+         WHERE m.id = $1 AND c.workspace_id = $2
+           AND m.user_id = $3 AND c.deleted_at IS NULL`,
+        [message_id, wid, uid]
       );
       if (!m.rows[0]) {
         res.status(400).json({ error: '対象のメッセージが見つかりません' });
