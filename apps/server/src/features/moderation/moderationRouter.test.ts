@@ -163,6 +163,7 @@ describe('POST /:uid/warn', () => {
     const call = query.mock.calls.find((c) => String(c[0]).includes('FROM messages m'));
     expect(call).toBeDefined();
     expect(String(call![0])).toContain('m.user_id = $3');
+    expect(String(call![0])).toContain('m.deleted_at IS NULL');
     expect(String(call![0])).toContain('c.deleted_at IS NULL');
     expect(call![1]).toEqual(['44444444-4444-4444-8444-444444444444', expect.any(String), UID]);
   });
