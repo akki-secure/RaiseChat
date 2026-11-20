@@ -85,6 +85,8 @@ jobs:
 
       - name: Test
         run: pnpm test
+        env:
+          INTEGRATION_DB: '1' # 実DB（使い捨てのCI用DB）での統合テストも実行する
 
   web:
     name: Web (lint / typecheck / test / build)
