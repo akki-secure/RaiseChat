@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import bcrypt from 'bcrypt';
 
 const query = vi.fn();
@@ -37,6 +37,14 @@ describe('ロック', () => {
 });
 
 describe('regenerateRecoveryCodes', () => {
+  // 本番はコスト10で、8個だと重い。このテストはハッシュの強さを見るものではないので、
+  // コスト4に下げて、高負荷時のタイムアウト（5秒）を防ぐ。ハッシュ自体は本物（'$2' で始まる）
+  const realHash = bcrypt.hash.bind(bcrypt);
+  beforeEach(() => {
+    vi.spyOn(bcrypt, 'hash').mockImplementation(((data: string) => realHash(data, 4)) as typeof bcrypt.hash);
+  });
+  afterEach(() => { vi.mocked(bcrypt.hash).mockRestore(); });
+
   it('8個の重複しないコードを返し、DBにはハッシュだけを保存する', async () => {
     clientQuery.mockResolvedValue({ rows: [] });
     const codes = await regenerateRecoveryCodes('u1');
