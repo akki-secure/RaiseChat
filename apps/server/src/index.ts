@@ -22,9 +22,11 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { authLimiter, uploadLimiter } from './middleware/rateLimiter.js';
 import { initSocket } from './socket/index.js';
+import { applyTrustProxy } from './config/proxy.js';
 import logger from './utils/logger.js';
 
 const app = express();
+applyTrustProxy(app, process.env.TRUST_PROXY_HOPS);
 const httpServer = http.createServer(app);
 
 // ── セキュリティ ──
