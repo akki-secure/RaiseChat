@@ -1,5 +1,4 @@
 import { Router, Response, NextFunction } from 'express';
-import pool from '../config/db.js';
 import { requireAuth, AuthRequest } from '../middleware/auth.js';
 import { upload, validateFileSize } from '../middleware/upload.js';
 import { uploadToS3 } from '../utils/s3.js';
@@ -8,6 +7,7 @@ const router = Router();
 router.use(requireAuth);
 
 // POST /api/upload
+// S3 へ保存して URL を返すだけ。添付の登録はメッセージ送信 API が行う
 router.post('/', upload.single('file'), async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     if (!req.file) {
@@ -22,14 +22,6 @@ router.post('/', upload.single('file'), async (req: AuthRequest, res: Response, 
     }
 
     const url = await uploadToS3(req.file);
-
-    const { message_id } = req.body;
-    if (message_id) {
-      await pool.query(
-        'INSERT INTO attachments (message_id, url, file_type, size) VALUES ($1, $2, $3, $4)',
-        [message_id, url, req.file.mimetype, req.file.size]
-      );
-    }
 
     res.status(201).json({
       url,
