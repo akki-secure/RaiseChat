@@ -20,8 +20,8 @@ export default function ThreadPane({ channelId, parentId }: Props) {
 
   useEffect(() => {
     api
-      .get<{ messages: Message[] }>(`/channels/${channelId}/messages?parent_id=${parentId}`)
-      .then(({ messages: r }) => {
+      .get<{ replies: Message[] }>(`/channels/${channelId}/messages/${parentId}/thread`)
+      .then(({ replies: r }) => {
         setReplies(r);
         setTimeout(() => bottomRef.current?.scrollIntoView(), 50);
       })
