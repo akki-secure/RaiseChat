@@ -51,7 +51,8 @@ export default function ChannelPage() {
     joinChannel();
 
     const onNew = (msg: Message) => {
-      if (msg.channel_id !== channelId) return;
+      // 返信（parent_id がある投稿）は、チャンネルの一覧に出さない
+      if (msg.channel_id !== channelId || msg.parent_id) return;
       appendMessage(channelId, msg);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
     };
