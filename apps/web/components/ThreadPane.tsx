@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { api } from '@/lib/api';
+import { getSocket } from '@/lib/socket';
 import { useAppStore, Message } from '@/stores/useAppStore';
 import MessageItem from './MessageItem';
 import MessageInput from './MessageInput';
@@ -27,6 +28,18 @@ export default function ThreadPane({ channelId, parentId }: Props) {
       })
       .catch(() => {});
   }, [channelId, parentId]);
+
+  useEffect(() => {
+    const socket = getSocket('');
+    const onDelete = ({ id }: { id: string }) =>
+      setReplies((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, deleted_at: new Date().toISOString() } : r))
+      );
+    socket.on('message:delete', onDelete);
+    return () => {
+      socket.off('message:delete', onDelete);
+    };
+  }, []);
 
   async function sendReply(content: string) {
     const { message } = await api.post<{ message: Message }>(

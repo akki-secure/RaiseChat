@@ -266,7 +266,7 @@ router.put('/:mid', async (req: AuthRequest, res: Response, next: NextFunction) 
 // DELETE /api/messages/:mid — 論理削除 (本人 or ワークスペースowner)
 router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { mid } = req.params;
+    const { cid, mid } = req.params;
     const userId = req.user!.userId;
 
     const msg = await pool.query(
@@ -275,14 +275,15 @@ router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunctio
        JOIN channels c ON c.id = m.channel_id
        JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = $2
                                 AND wm.removed_at IS NULL
-       WHERE m.id = $1 AND m.deleted_at IS NULL AND c.deleted_at IS NULL`,
-      [mid, userId]
+       WHERE m.id = $1 AND m.channel_id = $3
+         AND m.deleted_at IS NULL AND c.deleted_at IS NULL`,
+      [mid, userId, cid]
     );
     if (!msg.rows[0]) {
       res.status(404).json({ error: 'メッセージが見つかりません' });
       return;
     }
-    const { user_id, role } = msg.rows[0];
+    const { user_id, channel_id, role } = msg.rows[0];
     if (user_id !== userId && role !== 'owner') {
       res.status(403).json({ error: '削除できません' });
       return;
@@ -292,6 +293,11 @@ router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunctio
       "UPDATE messages SET deleted_at = NOW() WHERE id = $1",
       [mid]
     );
+    try {
+      getIo().to(`channel:${channel_id}`).emit('message:delete', { id: mid, channel_id });
+    } catch {
+      // Socket.io 未初期化時は無視（テスト環境など）
+    }
     res.json({ message: '削除しました' });
   } catch (err) {
     next(err);
