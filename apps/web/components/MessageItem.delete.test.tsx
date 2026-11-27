@@ -51,6 +51,16 @@ describe('MessageItem の削除', () => {
     expect(stored().deleted_at).toBeNull();
   });
 
+  it('削除の通信中はボタンを押せず、API は1回だけ呼ぶ', () => {
+    del.mockReturnValue(new Promise(() => {}));   // 応答が返らない状態を作る
+    render(<MessageItem channelId="c1" msg={msg} />);
+    clickDelete();
+    const button = screen.getByRole('button', { name: '削除' });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(del).toHaveBeenCalledTimes(1);
+  });
+
   it('削除済みのメッセージは添付とリアクションを表示しない', () => {
     const { container } = render(
       <MessageItem

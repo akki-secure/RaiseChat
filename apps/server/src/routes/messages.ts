@@ -266,7 +266,7 @@ router.put('/:mid', async (req: AuthRequest, res: Response, next: NextFunction) 
 // DELETE /api/messages/:mid — 論理削除 (本人 or ワークスペースowner)
 router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
-    const { mid } = req.params;
+    const { cid, mid } = req.params;
     const userId = req.user!.userId;
 
     const msg = await pool.query(
@@ -275,8 +275,9 @@ router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunctio
        JOIN channels c ON c.id = m.channel_id
        JOIN workspace_members wm ON wm.workspace_id = c.workspace_id AND wm.user_id = $2
                                 AND wm.removed_at IS NULL
-       WHERE m.id = $1 AND m.deleted_at IS NULL AND c.deleted_at IS NULL`,
-      [mid, userId]
+       WHERE m.id = $1 AND m.channel_id = $3
+         AND m.deleted_at IS NULL AND c.deleted_at IS NULL`,
+      [mid, userId, cid]
     );
     if (!msg.rows[0]) {
       res.status(404).json({ error: 'メッセージが見つかりません' });

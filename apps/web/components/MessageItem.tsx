@@ -18,6 +18,7 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
   const { me, addReaction, removeReaction, softDeleteMessage } = useAppStore();
   const [showActions, setShowActions] = useState(false);
   const [deleteError, setDeleteError] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const isDeleted = !!msg.deleted_at;
   const isOwn = msg.user_id === me?.id;
@@ -44,12 +45,15 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
   }
 
   async function handleDelete() {
+    setDeleting(true);
     setDeleteError(false);
     try {
       await api.delete(`/channels/${channelId}/messages/${msg.id}`);
       softDeleteMessage(channelId, msg.id);
     } catch {
       setDeleteError(true);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -195,7 +199,8 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
           {isOwn && (
             <button
               onClick={handleDelete}
-              className="text-xs text-gray-500 hover:text-red-400 px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700"
+              disabled={deleting}
+              className="text-xs text-gray-500 hover:text-red-400 px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-50"
             >
               削除
             </button>
