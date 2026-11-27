@@ -282,7 +282,7 @@ router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunctio
       res.status(404).json({ error: 'メッセージが見つかりません' });
       return;
     }
-    const { user_id, role } = msg.rows[0];
+    const { user_id, channel_id, role } = msg.rows[0];
     if (user_id !== userId && role !== 'owner') {
       res.status(403).json({ error: '削除できません' });
       return;
@@ -292,6 +292,11 @@ router.delete('/:mid', async (req: AuthRequest, res: Response, next: NextFunctio
       "UPDATE messages SET deleted_at = NOW() WHERE id = $1",
       [mid]
     );
+    try {
+      getIo().to(`channel:${channel_id}`).emit('message:delete', { id: mid, channel_id });
+    } catch {
+      // Socket.io 未初期化時は無視（テスト環境など）
+    }
     res.json({ message: '削除しました' });
   } catch (err) {
     next(err);

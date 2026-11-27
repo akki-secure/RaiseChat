@@ -17,6 +17,7 @@ const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '🙏'];
 export default function MessageItem({ msg, channelId, onReply }: Props) {
   const { me, addReaction, removeReaction, softDeleteMessage } = useAppStore();
   const [showActions, setShowActions] = useState(false);
+  const [deleteError, setDeleteError] = useState(false);
 
   const isDeleted = !!msg.deleted_at;
   const isOwn = msg.user_id === me?.id;
@@ -43,8 +44,13 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
   }
 
   async function handleDelete() {
-    softDeleteMessage(channelId, msg.id);
-    await api.delete(`/messages/${msg.id}`).catch(() => {});
+    setDeleteError(false);
+    try {
+      await api.delete(`/channels/${channelId}/messages/${msg.id}`);
+      softDeleteMessage(channelId, msg.id);
+    } catch {
+      setDeleteError(true);
+    }
   }
 
   return (
@@ -106,8 +112,12 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
           </div>
         )}
 
+        {deleteError && (
+          <p role="alert" className="text-xs text-red-400">削除できませんでした</p>
+        )}
+
         {/* 添付ファイル */}
-        {msg.attachments && msg.attachments.length > 0 && (
+        {!isDeleted && msg.attachments && msg.attachments.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-2">
             {msg.attachments.map((a) =>
               a.file_type.startsWith('image/') ? (
@@ -143,7 +153,7 @@ export default function MessageItem({ msg, channelId, onReply }: Props) {
         )}
 
         {/* リアクション */}
-        {msg.reactions && msg.reactions.length > 0 && (
+        {!isDeleted && msg.reactions && msg.reactions.length > 0 && (
           <div className="mt-1 flex flex-wrap gap-1">
             {msg.reactions.map((r) => (
               <button
